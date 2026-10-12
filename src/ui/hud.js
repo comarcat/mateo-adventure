@@ -30,6 +30,11 @@ export function drawHUD(ctx, lv) {
     x += 8 * 6 + 4;
   }
   if (h.weapon === 'gun') { ctx.drawImage(ITEM_ART.gun.r, x, 26); label(ctx, 'X' + String(h.ammo).padStart(2, '0'), x + 16, 29, '#ffd84a'); x += 46; }
+  else if (h.weapon === 'ice' || h.weapon === 'fire') {
+    const ice = h.weapon === 'ice'; ctx.drawImage(ITEM_ART[h.weapon].r, x, 26);
+    ctx.fillStyle = SH; ctx.fillRect(x + 16, 29, 32, 7); ctx.fillStyle = '#3a3a58'; ctx.fillRect(x + 17, 30, 30, 5);
+    ctx.fillStyle = ice ? '#8ad8ff' : '#ff9a2e'; ctx.fillRect(x + 17, 30, Math.round(30 * h.energy / 100), 5); x += 52;
+  }
   else if (h.weapon === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, 'X' + String(h.charges).padStart(2, '0'), x + 16, 29, '#7af0ff'); x += 46; }
   if (h.availableWeapons().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
   label(ctx, 'LIVES X' + run.lives, W - 6, 29, '#fff', { align: 'right' });

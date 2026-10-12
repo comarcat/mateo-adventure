@@ -1,6 +1,6 @@
 // Mateo, the hero. Tight platformer feel: coyote time, jump buffering, variable jump height,
 // acceleration/deceleration, momentum, and the RUSH speed burst (invulnerable to small enemies).
-import { moveXBy, moveY } from '../engine/physics.js';
+import { moveXBy, moveY, K } from '../engine/physics.js';
 import { MATEO, drawSprite } from '../gfx/sprites.js';
 import { SHIELD_RING } from '../gfx/art.js';
 
@@ -22,19 +22,21 @@ export class Hero {
     this.meter = 100; this.rushing = false; this.rushCd = 0;
     this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.shootCd = 0;
     this.riding = null; this.animT = 0; this.trail = []; this.noCut = false;
+    this.airDashes = 1; this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.wallCoyote = 0; this.wallDirMem = 0; this.noCtlX = 0; this.gliding = false;
   }
 
   respawn(x, y) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = this.maxHp; this.dead = false;
     this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.star = 0; this.deathT = 0;
     this.invuln = 120; this.hurtT = 0; this.meter = 100; this.rushing = false; this.rushCd = 0; this.riding = null; this.trail.length = 0;
+    this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.noCtlX = 0; this.gliding = false;
     this.grounded = false;
   }
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
   // Small enemies can't hurt a rushing or starred hero.
-  get smashing() { return this.rushing || this.star > 0; }
+  get smashing() { return this.rushing || this.star > 0 || this.dashT > 0 || this.pounding; }
 
   hurt(dmg, fromX, lv) {
     if (this.dead || this.invuln > 0 || this.star > 0 || lv.cheatInvincible) return false;
@@ -62,13 +64,15 @@ export class Hero {
   }
 
   update(lv) {
-    const inp = lv.input, map = lv.map;
+    const inp = lv.input, map = lv.map, ph = lv.data.physics || {};
     if (this.dead) { this.deathT++; this.vy = Math.min(this.vy + 0.25, 5); this.y += this.vy; return; }
 
     if (this.invuln > 0) this.invuln--;
     if (this.hurtT > 0) this.hurtT--;
     if (this.star > 0) this.star--;
     if (this.dropT > 0) this.dropT--;
+    if (this.noCtlX > 0) this.noCtlX--;
+    if (this.grounded) { this.airDashes = 1; }
 
     const clearing = lv.status === 'clear';
     const ctl = this.hurtT <= 0 && lv.status === 'play';
@@ -77,6 +81,13 @@ export class Hero {
     else if (clearing) dir = 1;
 
     // ---- RUSH: hold to burst forward at high speed for a limited time, then cool down.
+    // ---- boss power AIR DASH: a short horizontal burst in mid-air (once per jump)
+    if (this.dashT > 0) { this.dashT--; if (this.dashT === 0) this.vx = this.facing * 1.8; }
+    else if (ctl && this.powers.has('airdash') && !this.grounded && this.airDashes > 0 && inp.pressed('rush')) {
+      this.airDashes--; this.dashT = 14; this.vy = 0; this.pounding = false; lv.audio.sfx('dash');
+      lv.particles.emit(this.cx - this.facing * 4, this.cy, 6, { angle: this.facing > 0 ? Math.PI : 0, spread: 0.7, speed: 1.6, color: ['#fff', '#7af0ff'], life: 14 });
+    }
+    const airDashOwned = this.powers.has('airdash') && !this.grounded;
     const wantRush = ctl && inp.down('rush');
     if (this.rushing) {
       if (!wantRush || this.meter <= 0) { this.rushing = false; this.rushCd = this.meter <= 0 ? 90 : 12; }
@@ -84,7 +95,7 @@ export class Hero {
     } else {
       if (this.rushCd > 0) this.rushCd--;
       else {
-        if (ctl && inp.pressed('rush') && this.meter >= 25) { this.rushing = true; lv.audio.sfx('dash'); }
+        if (ctl && inp.pressed('rush') && this.meter >= 25 && !airDashOwned) { this.rushing = true; lv.audio.sfx('dash'); }
         this.meter = Math.min(100, this.meter + (wantRush ? 0.3 : 0.7));
       }
     }
@@ -92,22 +103,25 @@ export class Hero {
 
     // ---- horizontal movement with momentum
     const max = clearing ? 1.2 : (this.rushing ? RUSH_SPEED : WALK);
-    const acc = this.rushing ? 0.16 : (this.grounded ? 0.13 : 0.10);
+    const slick = !!ph.slick;
+    const acc = this.rushing ? 0.16 : (this.grounded ? (slick ? 0.045 : 0.13) : 0.10);
     const rdir = (this.rushing && !dir) ? this.facing : dir;
-    if (this.hurtT <= 0) {
+    if (this.dashT > 0) { this.vx = this.facing * 3.6; }
+    else if (this.hurtT <= 0 && this.noCtlX <= 0 && !this.pounding) {
       if (rdir) {
         this.facing = rdir;
-        if (this.vx * rdir < 0) this.vx += rdir * (this.grounded ? 0.3 : 0.16);          // turning around
+        if (this.vx * rdir < 0) this.vx += rdir * (this.grounded ? (slick ? 0.09 : 0.3) : 0.16);          // turning around
         else if (this.vx * rdir < max) this.vx = rdir * Math.min(Math.abs(this.vx) + acc, max);
         else this.vx -= rdir * 0.05;                                                    // leftover rush momentum bleeds off
       } else {
-        const f = this.grounded ? 0.12 : 0.03;
+        const f = this.grounded ? (slick ? 0.02 : 0.12) : 0.03;
         this.vx = Math.abs(this.vx) <= f ? 0 : this.vx - Math.sign(this.vx) * f;
       }
     }
 
     // ---- weapons: switch with prev/next, shoot with the shoot button
     if (this.shootCd > 0) this.shootCd--;
+    if (this.energy < 100) this.energy = Math.min(100, this.energy + 0.07);
     if (ctl) {
       if (inp.pressed('next')) this.cycleWeapon(1, lv);
       if (inp.pressed('prev')) this.cycleWeapon(-1, lv);
@@ -123,7 +137,7 @@ export class Hero {
     if (ctl && inp.down('down') && inp.pressed('jump') && this.onOneWay) {      // drop through thin platforms
       this.dropT = 10; this.y += 1; this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
     } else if (this.jumpBuf > 0 && this.coyote > 0) {
-      this.vy = -(JUMP_V + Math.abs(this.vx) * 0.12);
+      this.vy = -(JUMP_V * (ph.jump ?? 1) + Math.abs(this.vx) * 0.12);
       this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
       lv.particles.dust(this.cx, this.y + this.h);
       lv.audio.sfx('jump');
@@ -133,8 +147,33 @@ export class Hero {
       lv.audio.sfx('jump2');
     }
     if (this.vy >= 0) this.noCut = false;
-    const g = (this.vy < 0 && !jumpHeld && !this.noCut) ? GRAV_CUT : GRAV;
-    this.vy = Math.min(this.vy + g, MAX_FALL);
+    const gm = ph.grav ?? 1;
+    const g = ((this.vy < 0 && !jumpHeld && !this.noCut) ? GRAV_CUT : GRAV) * gm;
+    if (this.dashT > 0) this.vy = 0;
+    else this.vy = Math.min(this.vy + g, MAX_FALL * (gm < 1 ? 0.7 : 1));
+
+    // ---- boss power WALL CLIMB: slide down walls while pushing into them, jump off them
+    this.sliding = 0;
+    if (this.powers.has('wallslide') && !this.grounded && this.vy > 0 && ctl) {
+      const mid = Math.floor((this.y + this.h / 2) / 16);
+      const left = map.kind(Math.floor((this.x - 1) / 16), mid) === K.SOLID, right = map.kind(Math.floor((this.x + this.w + 1) / 16), mid) === K.SOLID;
+      const side = right ? 1 : (left ? -1 : 0);
+      if (side && dir === side) { this.sliding = side; this.vy = Math.min(this.vy, 1.05); this.wallCoyote = 6; this.wallDirMem = side; this.airJumps = 1; }
+    }
+    if (this.wallCoyote > 0 && !this.sliding) this.wallCoyote--;
+    if (this.wallCoyote > 0 && ctl && inp.pressed('jump') && !this.grounded) {
+      this.vy = -4.4; this.vx = -this.wallDirMem * 2.3; this.facing = -this.wallDirMem; this.noCtlX = 9; this.wallCoyote = 0; this.sliding = 0; this.jumpBuf = 0;
+      lv.particles.emit(this.cx + this.wallDirMem * 5, this.cy, 6, { angle: this.wallDirMem > 0 ? Math.PI : 0, spread: 1, speed: 1.2, color: ['#fff'], life: 12 });
+      lv.audio.sfx('jump');
+    }
+    // ---- boss power GLIDE: hold jump while falling to float
+    this.gliding = false;
+    if (this.powers.has('glide') && !this.grounded && this.vy > 0.6 && jumpHeld && !this.sliding && this.dashT <= 0 && !this.pounding) { this.vy = Math.min(this.vy, 0.7); this.gliding = true; }
+    // ---- boss power GROUND POUND: press down in the air to slam
+    if (this.powers.has('groundpound') && !this.grounded && ctl && inp.pressed('down') && !this.pounding && this.dashT <= 0 && this.vy > -1) {
+      this.pounding = true; this.vx = 0; this.vy = 6.2; lv.audio.sfx('dash');
+    }
+    if (this.pounding) { this.vy = Math.max(this.vy, 5.8); this.vx = 0; }
 
     // ---- moving platform carry
     if (this.riding) {
@@ -149,22 +188,33 @@ export class Hero {
     const prevBottom = this.y + this.h;
     moveY(this, map);
     this.landOnPlatforms(lv, prevBottom);
+    if (this.pounding && (this.grounded || this.hurtT > 0)) { if (this.grounded) this.slam(lv); this.pounding = false; }
     if (this.grounded && !wasGrounded && preVy > 1.5) { lv.particles.dust(this.cx, this.y + this.h); lv.audio.sfx('land'); }
     if (this.ceil) lv.onHeadBump(this.ceil.c, this.ceil.r);
 
     // ---- animation + rush afterimages
     if (this.grounded) this.animT += Math.abs(this.vx) * 0.12; else this.animT = 0;
-    if (this.rushing) {
+    if (this.rushing || this.dashT > 0) {
       this.trail.push({ x: this.x, y: this.y, f: this.facing, s: this.sprite() });
       if (this.trail.length > 4) this.trail.shift();
       if (this.grounded && lv.frames % 3 === 0) lv.particles.dust(this.cx - this.facing * 4, this.y + this.h, -this.facing);
     } else if (this.trail.length) this.trail.shift();
   }
 
+  // ground pound landing: shockwave that wrecks nearby enemies and rattles the screen
+  slam(lv) {
+    lv.camera.shake(4, 12); lv.audio.sfx('pound');
+    lv.particles.emit(this.cx, this.y + this.h, 14, { angle: -Math.PI / 2, spread: 3.1, speed: 2, color: ['#fff', '#ffd84a', '#c8a060'], life: 20, size: 3 });
+    for (const e of lv.enemies) if (!e.dead && Math.abs(e.cx - this.cx) < 34 && Math.abs(e.cy - this.cy) < 24) { if (e.def.small) lv.killEnemy(e); else e.hit(3, lv, 'pound'); }
+    if (lv.boss && !lv.boss.dead && Math.abs(lv.boss.cx - this.cx) < 40 && Math.abs(lv.boss.cy - this.cy) < 30) lv.boss.hit(2, lv, 'pound');
+  }
+
   availableWeapons() {
     const w = [];
     if (this.ammo > 0) w.push('gun');
     if (this.charges > 0) w.push('laser');
+    if (this.powers.has('iceshot')) w.push('ice');
+    if (this.powers.has('fireshot')) w.push('fire');
     return w;
   }
   cycleWeapon(d, lv) {
@@ -182,6 +232,10 @@ export class Hero {
     } else if (this.weapon === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
       lv.projectiles.fireLaser(this.facing > 0 ? this.x + this.w : this.x, this.y + 6, this.facing);
       this.charges--; this.shootCd = 22; lv.audio.sfx('laser'); lv.camera.shake(1, 4);
+    } else if ((this.weapon === 'ice' || this.weapon === 'fire') && inp.down('shoot') && this.shootCd <= 0 && this.energy >= 6) {
+      const x = this.facing > 0 ? this.x + this.w : this.x;
+      if (this.weapon === 'ice') lv.projectiles.fireIce(x, this.y + 6, this.facing); else lv.projectiles.fireFire(x, this.y + 6, this.facing);
+      this.energy -= this.weapon === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(this.weapon);
     } else if (inp.pressed('shoot') && !this.weapon) lv.audio.sfx('empty');
     if (!this.availableWeapons().includes(this.weapon)) this.weapon = this.availableWeapons()[0] || null;
   }

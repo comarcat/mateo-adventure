@@ -9,7 +9,7 @@ export class CompleteState {
   enter(p) {
     this.p = p; const g = this.game; this.t = 0;
     const items = p.campaign
-      ? [{ label: 'CONTINUE', action: () => { const { world, index } = parseLevelId(p.level); g.change('map', { world, node: index, advance: true }); } }]
+      ? [{ label: 'CONTINUE', action: () => { const { world, index } = parseLevelId(p.level); if (p.level === '8-4') g.change('victory', { score: g.run.score, coins: g.run.coins, powers: [...g.run.powers], time: g.campaignTime() }); else g.change('map', { world, node: index, advance: true }); } }]
       : [{ label: 'PLAY AGAIN', action: () => { g.run = g.newRun(); g.change('play', { level: p.level }); } }, { label: 'TITLE', action: () => g.change('title') }];
     this.menu = new Menu(items, { y: 184, gap: 15 });
     g.audio.music('victory', false);

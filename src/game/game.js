@@ -25,6 +25,8 @@ export class Game {
   newRun() { return { lives: 3, score: 0, coins: 0, powers: [], campaign: false }; }
   // Campaign run state mirrors the saved progress; persistRun() writes it back.
   campaignRun() { const p = this.save.progress; return { lives: p.lives, score: p.score, coins: p.coins, powers: [...p.powers], campaign: true }; }
+  // Total campaign play time in seconds (sum of best level times is not what players expect: we accumulate real play time)
+  campaignTime() { return this.save.progress.time || 0; }
   persistRun() {
     const p = this.save.progress, r = this.run;
     p.lives = r.lives; p.score = r.score; p.coins = r.coins; p.powers = [...new Set(r.powers)]; this.save.flush();

@@ -5,7 +5,7 @@ import { levelIds, getLevel } from '../src/levels/index.js';
 import { MAX_PIT } from '../src/levels/builder.js';
 
 const SOLID = new Set(['#', 'B', '?', '!']);
-const GROUND_ENEMY = new Set(['e', 'k', 't', 'r']);
+const GROUND_ENEMY = new Set(['e', 'k', 't', 'r', 'w', 'h', 'm']);
 const PICKUPS = new Set(['o', '*', '1', 's', 'g', 'l', 'a', 'z']);
 let bad = 0;
 const fail = (id, msg) => { bad++; console.log('  FAIL', id, msg); };
@@ -38,7 +38,8 @@ for (const id of levelIds()) {
   for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
     const ch = at(c, r);
     if (GROUND_ENEMY.has(ch)) {
-      for (const dc of [-2, -1, 1, 2]) if (floor(c + dc) === -1 && at(c + dc, r + 1) === '.' && floor(c) !== -1) { fail(id, "enemy '" + ch + "' at col " + c + ' is within 2 tiles of a pit'); break; }
+      const clear = d.world >= 2 ? 4 : 2;      // generated worlds keep enemies further from pits
+      for (let dc = -clear; dc <= clear; dc++) if (dc !== 0 && floor(c + dc) === -1 && at(c + dc, r + 1) === '.' && floor(c) !== -1) { fail(id, "enemy '" + ch + "' at col " + c + ' is within ' + clear + ' tiles of a pit'); break; }
     }
     if (PICKUPS.has(ch) && SOLID.has(at(c, r))) fail(id, 'pickup inside solid at ' + c + ',' + r);
   }

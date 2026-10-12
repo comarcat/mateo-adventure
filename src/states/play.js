@@ -1,6 +1,7 @@
 import { Level } from '../game/level.js';
 import { getLevel } from '../levels/index.js';
 import { drawHUD } from '../ui/hud.js';
+import { POWERS } from '../data/powers.js';
 
 export class PlayState {
   constructor(game) { this.game = game; this.pausable = true; }
@@ -25,6 +26,7 @@ export class PlayState {
     g.run.score += b.total;
     const p = { level: this.levelId, bonus: b, score: g.run.score, kills: lv.kills, coins: g.run.coins, campaign: this.campaign, newPower: lv.newPower, boss: !!lv.data.boss };
     if (this.campaign) {
+      g.save.progress.time = (g.save.progress.time || 0) + b.secs;
       g.save.markCleared(this.levelId, lv.levelScore + b.total, b.secs);
       g.persistRun();
     }
@@ -34,6 +36,9 @@ export class PlayState {
     if (inp.key('KeyI')) { lv.cheatInvincible = !lv.cheatInvincible; this.game.toast('INVINCIBLE ' + (lv.cheatInvincible ? 'ON' : 'OFF')); }
     if (inp.key('KeyR')) { lv.cheatInfiniteRush = !lv.cheatInfiniteRush; this.game.toast('INFINITE RUSH ' + (lv.cheatInfiniteRush ? 'ON' : 'OFF')); }
     if (inp.key('KeyB')) lv.showBoxes = !lv.showBoxes;
+    const ids = Object.keys(POWERS);
+    for (let i = 0; i < 8; i++) if (inp.key('Digit' + (i + 1))) { const id = ids[i]; const on = lv.hero.powers.has(id); on ? lv.hero.powers.delete(id) : lv.hero.powers.add(id); this.game.toast(POWERS[id].name + (on ? ' OFF' : ' ON')); }
+    if (inp.key('KeyP')) { for (const id of ids) lv.hero.powers.add(id); lv.hero.ammo = 99; lv.hero.charges = 20; this.game.toast('ALL POWERS + AMMO'); }
     if (inp.key('KeyL') && lv.goal && lv.status === 'play') { lv.hero.x = lv.goal.x - 40; lv.hero.y = lv.goal.y; lv.hero.vy = 0; }
   }
   draw(ctx) {

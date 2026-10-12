@@ -3,7 +3,7 @@ import { T, W } from '../config.js';
 import { K, moveXBy, moveY } from '../engine/physics.js';
 import { ENEMIES } from '../data/enemies.js';
 import { WORLD_SCALING } from '../data/difficulty.js';
-import { ENEMY_ART } from '../gfx/art.js';
+import { enemyArt, iceOverlay } from '../gfx/art.js';
 import { drawSprite } from '../gfx/sprites.js';
 
 const GRAV = 0.2;
@@ -20,6 +20,7 @@ export class Enemy {
     this.fireDelay = Math.round(110 / (ws.fireMul * df.enemySpeed));
     this.bulletSpeed = 1.3 * ws.bulletMul * df.bulletSpeed;
     this.sight = ws.sight;
+    this.skin = lv.data.theme; this.frozen = 0;
     this.dir = -1; this.grounded = false; this.dead = false; this.flash = 0; this.t = Math.floor(Math.random() * 60);
     this.state = 'idle'; this.timer = 0; this.baseY = y; this.awake = false;
   }
@@ -33,6 +34,8 @@ export class Enemy {
     return false;
   }
 
+  freeze(frames = 240) { this.frozen = frames; this.state = 'idle'; }
+
   update(lv) {
     // Only simulate enemies near the screen (performance + fairness).
     const cam = lv.camera;
@@ -41,11 +44,14 @@ export class Enemy {
     this.awake = near;
     this.t++; if (this.flash > 0) this.flash--;
     const h = lv.hero;
+    if (this.frozen > 0) { this.frozen--; this.vx = 0; if (this.def.ai !== 'fly' && this.def.ai !== 'swoop') this.physics(lv); return; }
     switch (this.def.ai) {
       case 'walk': this.walk(lv); break;
       case 'fly': this.fly(lv); break;
       case 'shoot': this.shoot(lv, h); break;
       case 'charge': this.charge(lv, h); break;
+      case 'hop': this.hop(lv, h); break;
+      case 'swoop': this.swoop(lv, h); break;
     }
     if (this.y > lv.map.pxH + 32) this.dead = true;
   }
@@ -75,6 +81,31 @@ export class Enemy {
     this.y = this.baseY + Math.sin(this.t * 0.06) * 14;
     const m = lv.map, fx = Math.floor((this.dir > 0 ? this.x + this.w : this.x) / T), fy = Math.floor(this.cy / T);
     if (m.kind(fx, fy) === K.SOLID || (this.t % 240) === 239) this.dir = -this.dir;
+  }
+
+  hop(lv, h) {
+    this.dir = h.cx < this.cx ? -1 : 1;
+    if (this.grounded) { this.vx = 0; if (++this.timer > 55 && Math.abs(h.cx - this.cx) < this.sight + 40) { this.vy = -3.7; this.vx = this.dir * this.speed * 1.6; this.timer = 0; this.grounded = false; } }
+    this.physics(lv);
+    if (this.wall) this.vx = 0;
+  }
+
+  swoop(lv, h) {
+    if (this.state === 'idle') {
+      this.x += this.dir * this.speed * 0.6; this.y = this.baseY + Math.sin(this.t * 0.07) * 8;
+      const m = lv.map, fx = Math.floor((this.dir > 0 ? this.x + this.w : this.x) / T);
+      if (m.kind(fx, Math.floor(this.cy / T)) === K.SOLID || this.t % 200 === 199) this.dir = -this.dir;
+      if (Math.abs(h.cx - this.cx) < 90 && h.y > this.y && ++this.timer > 30) { this.state = 'dive'; this.timer = 0; this.tx = h.cx; this.ty = h.cy; }
+    } else if (this.state === 'dive') {
+      const dx = this.tx - this.cx, dy = this.ty - this.cy, l = Math.hypot(dx, dy) || 1;
+      const sp = 2.2 * (this.speed / 0.6); this.x += dx / l * sp; this.y += dy / l * sp;
+      this.dir = dx < 0 ? -1 : 1;
+      if (l < 4 || ++this.timer > 50 || lv.map.kind(Math.floor(this.cx / T), Math.floor((this.y + this.h) / T)) === K.SOLID) { this.state = 'back'; this.timer = 0; }
+    } else {
+      const dy = this.baseY - this.y; this.y += Math.sign(dy) * Math.min(1.2, Math.abs(dy));
+      this.x += this.dir * 0.4;
+      if (Math.abs(dy) < 1) { this.state = 'idle'; this.timer = -40; }
+    }
   }
 
   shoot(lv, h) {
@@ -113,15 +144,17 @@ export class Enemy {
   }
 
   draw(ctx) {
-    const frames = ENEMY_ART[this.type];
+    const frames = enemyArt(this.type, this.skin);
     let f = Math.floor(this.t / 12) % 2;
-    if (this.def.ai === 'fly') f = Math.floor(this.t / 6) % 2;
+    if (this.def.ai === 'fly' || this.def.ai === 'swoop') f = Math.floor(this.t / 6) % 2;
+    if (this.def.ai === 'hop') f = this.grounded ? 0 : 1;
     if (this.def.ai === 'shoot') f = this.state === 'aim' ? 1 : 0;
     let ox = 0;
     if (this.state === 'wind') ox = (this.t % 4 < 2) ? -1 : 1;
     const flash = this.flash > 0 || (this.state === 'wind' && this.t % 6 < 3);
     const face = this.def.ai === 'shoot' ? this.dir : this.dir;
     drawSprite(ctx, frames[f], this.x - (16 - this.w) / 2 + ox, this.y - (16 - this.h), face, flash);
+    if (this.frozen > 0) { ctx.globalAlpha = 0.8; drawSprite(ctx, iceOverlay(frames[f]), this.x - (16 - this.w) / 2, this.y - (16 - this.h), face, false); ctx.globalAlpha = 1; }
     if (this.state === 'wind') { ctx.fillStyle = '#ff4a4a'; ctx.fillRect(Math.round(this.cx) - 1, Math.round(this.y) - 8, 2, 4); ctx.fillRect(Math.round(this.cx) - 1, Math.round(this.y) - 3, 2, 2); }
   }
 }

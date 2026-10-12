@@ -9,6 +9,7 @@ import { GameOverState } from './states/gameover.js';
 import { ModeSelectState } from './states/modeselect.js';
 import { OptionsState } from './states/options.js';
 import { MapState } from './states/map.js';
+import { VictoryState } from './states/victory.js';
 
 const canvas = document.getElementById('game');
 const game = new Game(canvas, document.getElementById('screen'));
@@ -21,6 +22,7 @@ game.register('gameover', GameOverState);
 game.register('modeselect', ModeSelectState);
 game.register('options', OptionsState);
 game.register('map', MapState);
+game.register('victory', VictoryState);
 game.change('title');
 window.game = game;      // handy for debugging in the console
 

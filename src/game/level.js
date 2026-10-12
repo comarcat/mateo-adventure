@@ -96,6 +96,7 @@ export class Level {
     e.dead = true; this.kills++;
     this.particles.emit(e.cx, e.cy, 14, { speed: 1.9, g: 0.05, life: 28, size: 3, color: e.def.color });
     this.audio.sfx('enemydie');
+    if (e.def.splits && !silent) for (let i = 0; i < e.def.splits; i++) { const m = this.spawnEnemy('blob', e.x + i * 6 - 2, e.y); m.dir = i ? 1 : -1; m.vy = -2.4; m.speed *= 1.3; }
     if (!silent) this.addScore(e.def.score, e.cx, e.y - 4, true);
   }
 
@@ -176,6 +177,7 @@ export class Level {
     for (const e of this.enemies) {
       if (e.dead || !e.awake) continue;
       if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, e)) continue;
+      if (e.frozen > 0 && !h.smashing) { if (h.vy > 0.3 && (h.y + h.h) - e.y <= 10) { e.hit(2, this); h.vy = -3.6; h.noCut = true; } continue; }
       const stomping = h.vy > 0.3 && (h.y + h.h) - e.y <= 10 && !h.rushing;
       if (h.smashing && (e.def.small || h.star > 0)) {            // rush / star plows through small enemies
         this.killEnemy(e);
@@ -184,7 +186,7 @@ export class Level {
         e.hit(2, this); h.rushing = false; h.rushCd = 30; h.vx = -h.facing * 1.8; h.vy = -2;
         this.camera.shake(2, 6);
       } else if (stomping && e.def.stomp) {
-        e.hit(1, this);
+        e.hit(h.pounding ? 3 : 1, this);
         h.vy = this.input.down('jump') ? -5.2 : -3.6; h.noCut = true; h.grounded = false; h.airJumps = 1;
         h.invuln = Math.max(h.invuln, 6);
         this.particles.emit(h.cx, h.y + h.h, 5, { angle: -Math.PI / 2, spread: 2.2, speed: 1.3, color: ['#fff'], life: 12 });
@@ -196,13 +198,14 @@ export class Level {
 
   checkBoss(h) {
     const b = this.boss;
+    if (!b.touchable) return;
     if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, b)) return;
-    const stomping = h.vy > 0.3 && (h.y + h.h) - b.y <= 12 && !h.rushing;
+    const stomping = h.vy > 0.3 && (h.y + h.h) - b.y <= 12 && !h.rushing && h.dashT <= 0;
     if (stomping) {
-      b.hit(1, this);
-      h.vy = this.input.down('jump') ? -5.4 : -4; h.noCut = true; h.grounded = false; h.airJumps = 1; h.invuln = Math.max(h.invuln, 8);
-    } else if (h.rushing) {
-      b.hit(2, this); h.rushing = false; h.rushCd = 30; h.vx = -h.facing * 2.2; h.vy = -2.4;
+      b.hit(h.pounding ? 3 : 1, this, 'stomp');
+      h.vy = this.input.down('jump') ? -5.4 : -4; h.noCut = true; h.grounded = false; h.airJumps = 1; h.invuln = Math.max(h.invuln, 8); h.pounding = false;
+    } else if (h.rushing || h.dashT > 0) {
+      b.hit(2, this, 'rush'); h.rushing = false; h.dashT = 0; h.rushCd = 30; h.vx = -h.facing * 2.2; h.vy = -2.4;
     } else h.hurt(1, b.cx, this);
   }
 
@@ -210,6 +213,10 @@ export class Level {
     for (const p of this.pickups) {
       if (p.done) continue;
       if (this.hero.star > 0 && p.type === 'coin') { /* magnet-ish flair could go here */ }
+      if (p.type === 'coin' && h.powers.has('magnet')) {       // boss power: COIN MAGNET
+        const dx = h.cx - (p.x + 6), dy = h.cy - (p.y + 6), d = Math.hypot(dx, dy);
+        if (d < 64 && d > 1) { p.x += dx / d * 2.8; p.y += dy / d * 2.8; }
+      }
       if (overlap(h, { x: p.x - 1, y: p.y - 1, w: p.w + 2, h: p.h + 2 })) this.collect(p);
     }
   }
