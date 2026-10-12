@@ -7,6 +7,7 @@ import { Audio } from '../audio/audio.js';
 import { save } from '../save/save.js';
 import { DIFFICULTY } from '../data/difficulty.js';
 import { LocalScoreBoard } from '../save/scores.js';
+import { TouchControls } from '../engine/touch.js';
 
 export class Game {
   constructor(canvas, container) {
@@ -18,11 +19,14 @@ export class Game {
     this.debug = DEBUG;
     this.scores = new LocalScoreBoard(save);        // swap for RemoteScoreBoard to go online
     this.endlessSeed = null;
+    this.cheats = { invincible: false, rush: false, boxes: false, powers: false, lives: 0 };      // debug menu (?debug)
     this.registry = {}; this.stack = [];
     this.run = this.newRun();
     this.frame = 0;
     this.toastEl = document.getElementById('toast'); this.toastT = 0;
     this.input.onToast = (m) => this.toast(m);
+    this.touch = new TouchControls(container, this.input);
+    this.input.audioUnlock = () => this.audio.unlock();
   }
   get difficulty() { return DIFFICULTY[this.save.settings.difficulty] || DIFFICULTY.normal; }
   newRun() { return { lives: 3, score: 0, coins: 0, powers: [], campaign: false }; }
@@ -50,6 +54,8 @@ export class Game {
     this.input.poll();
     if (this.input.key('KeyF') && this.top && !this.top.captureKeys) this.gfx.toggleFullscreen();
     if (this.input.pressed('confirm') || this.input.pressed('jump')) this.audio.unlock();   // gamepad presses count as a gesture in most browsers
+    if (this.debug && this.input.key('F2') && this.top && this.top.name !== 'debug' && !this.top.captureKeys) { this.push('debug'); return; }
+    if (this.input.key('KeyT') && !(this.top && this.top.captureKeys)) this.toast(this.touch.toggle() ? 'TOUCH CONTROLS ON' : 'TOUCH CONTROLS OFF');
     if (this.input.key('KeyM') && !(this.top && this.top.captureKeys)) this.toast(this.audio.toggleMute() ? 'SOUND MUTED' : 'SOUND ON');
     if (this.top) this.top.update();
     if (this.toastT > 0 && --this.toastT === 0) this.toastEl.style.display = 'none';

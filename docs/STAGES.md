@@ -6,4 +6,5 @@
 4. Audio engine + music + SFX - DONE
 5. Remaining worlds, bosses and boss powers - DONE
 6. Endless mode with procedural generation and records screen - DONE
-7. Polish, balancing, bug pass, deployment instructions, final README
+7. Polish, balancing, bug pass, deployment instructions, final README - DONE
+8. Review open questions with the owner and make changes - NEXT

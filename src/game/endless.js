@@ -107,6 +107,8 @@ export class EndlessLevel extends Level {
         this.hazardTick(); this.waveTick();
       }
     } else if (this.boss && this.boss.dead && this.boss.deadT > 200) this.arenaWon();   // safety net if the orb is missed
+    // warm the next zone's graphics while there is spare time, so crossing the border never hitches
+    if (!this.arena && this.frames % 30 === 0 && this.absCol() % ZONE_TILES > ZONE_TILES * 0.55) assetsFor(ZONE_THEMES[(this.zone + 1) % 8]);
     if (this.fadeT > 0) this.fadeT--;
     if (this.bannerT > 0) this.bannerT--;
     // forget wave enemies that flew past

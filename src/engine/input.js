@@ -34,6 +34,8 @@ export class Input {
     this.latched = new Set();     // keys pressed since last poll (so quick taps are never lost)
     this.just = new Set();        // raw keys that went down this poll step (debug hotkeys etc.)
     this.cur = {}; this.prev = {};
+    this.touch = {};              // held actions, set by TouchControls
+    this.touchLatch = new Set();  // actions tapped since the last poll (so very short taps are never lost)
     this.padName = null;
     this.onToast = () => {};
     this.captureCb = null;
@@ -76,6 +78,7 @@ export class Input {
   poll() {
     this.prev = this.cur; this.cur = {};
     this.just = this.latched; this.latched = new Set();
+    const tl = this.touchLatch; this.touchLatch = new Set();
     const pad = this._pad();
     let ax = 0, ay = 0;
     if (pad) {
@@ -94,6 +97,7 @@ export class Input {
           else if (a === 'down' && ay > AXIS_ON) d = true;
         }
       }
+      if (this.touch[a] || tl.has(a)) d = true;
       this.cur[a] = d;
     }
   }

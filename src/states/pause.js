@@ -17,14 +17,16 @@ export class PauseState {
         if (this.below.endless) { const seed = this.below.seed; g.run = { lives: 3, score: 0, coins: 0, powers: [...g.save.progress.powers], campaign: false, endless: true }; g.change('endless', { seed }); return; }
         const id = this.below.levelId, camp = this.below.campaign; g.run = camp ? g.campaignRun() : g.newRun(); g.change('play', { level: id, campaign: camp });
       } },
+      { label: 'OPTIONS', action: () => g.push('options') },
       { label: 'CONTROLS', action: () => g.push('controls') },
       { label: 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
       { label: 'QUIT TO MAP', action: () => g.change('map', {}) },
       { label: 'QUIT TO TITLE', action: () => g.change('title') },
     ];
     const items = all.filter((it) => {
-      if (p && p.fromMap) return ['RESUME', 'CONTROLS', 'FULLSCREEN', 'QUIT TO TITLE'].includes(it.label);
+      if (p && p.fromMap) return ['RESUME', 'OPTIONS', 'CONTROLS', 'FULLSCREEN', 'QUIT TO TITLE'].includes(it.label);
       if (it.label === 'QUIT TO MAP') return !!this.below.campaign;
+      if (it.label === 'RESTART LEVEL') return !!(this.below.levelId || this.below.endless);
       return true;
     });
     this.menu = new Menu(items, { y: 78, gap: 14, onBack: () => g.pop() });

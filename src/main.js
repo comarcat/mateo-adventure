@@ -15,6 +15,7 @@ import { RecordsState } from './states/records.js';
 import { EndlessMenuState } from './states/endlessmenu.js';
 import { EndlessState } from './states/endless.js';
 import { EndlessResultState } from './states/endlessresult.js';
+import { DebugState } from './states/debug.js';
 
 const canvas = document.getElementById('game');
 const game = new Game(canvas, document.getElementById('screen'));
@@ -33,6 +34,7 @@ game.register('records', RecordsState);
 game.register('endlessmenu', EndlessMenuState);
 game.register('endless', EndlessState);
 game.register('endlessresult', EndlessResultState);
+game.register('debug', DebugState);
 game.change('title');
 window.game = game;      // handy for debugging in the console
 

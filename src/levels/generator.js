@@ -34,15 +34,15 @@ function enemy(g, air = false) {
 }
 function enemySlots(g, n, maxCount) {
   const out = [];
-  const cnt = Math.min(maxCount, Math.floor(0.4 + g.d * 1.6 + g.rng.next()));
-  for (let dx = 2; dx <= n - 5 && out.length < cnt; dx += 3) if (g.rng.next() < 0.75) out.push(dx);
+  const cnt = Math.min(maxCount, Math.floor(1.3 + g.d * 1.7 + g.rng.next()));
+  for (let dx = 2; dx <= n - 5 && out.length < cnt; dx += 3) if (g.rng.next() < 0.9) out.push(dx);
   return out;
 }
 
 export const SEGMENTS = {
   run(c, g) {
-    const n = g.rng.int(6, 10), items = [];
-    for (const dx of enemySlots(g, n, 2)) items.push([enemy(g), dx, 0]);
+    const n = g.rng.int(9, 13), items = [];
+    for (const dx of enemySlots(g, n, 3)) items.push([enemy(g), dx, 0]);
     if (g.rng.chance(0.5)) for (let i = 0; i < 4; i++) items.push(['o', 1 + i, 1]);
     c.flat(n, items);
   },
@@ -61,8 +61,8 @@ export const SEGMENTS = {
   steps(c, g) {
     const up = c.top > 9 && (c.top >= 12 || g.rng.chance(0.55)), d = g.rng.int(1, 2);
     if (up && c.top - d >= 8) c.step(d); else if (c.top + d <= 12) c.drop(d); else if (c.top - d >= 8) c.step(d);
-    const n = g.rng.int(6, 9), items = [];
-    for (const dx of enemySlots(g, n, 1)) items.push([enemy(g), dx, 0]);
+    const n = g.rng.int(8, 11), items = [];
+    for (const dx of enemySlots(g, n, 2)) items.push([enemy(g), dx, 0]);
     c.flat(n, items);
   },
   spikes(c, g) {
@@ -70,14 +70,14 @@ export const SEGMENTS = {
     c.flat(2); c.spikes(n, [['o', 1, 3], ['o', 2, 3], ...(n > 1 ? [['o', 3, 3]] : [])]); c.flat(3);
   },
   planks(c, g) {
-    const n = g.rng.int(9, 12), len = g.rng.int(4, 6), up = g.rng.int(3, 4), items = [];
-    for (const dx of enemySlots(g, n, 1)) items.push([enemy(g), dx, 0]);
+    const n = g.rng.int(10, 13), len = g.rng.int(4, 6), up = g.rng.int(3, 4), items = [];
+    for (const dx of enemySlots(g, n, 2)) items.push([enemy(g), dx, 0]);
     if (g.prof.air.length && g.rng.chance(0.4 + g.d * 0.3)) items.push([enemy(g, true), 3 + len, up + 2]);
     c.flat(n, items); c.plank(2, up, len); c.coins(2, up + 1, len - 1);
   },
   arena(c, g) {
     const n = 12, items = [];
-    for (const dx of [2, 5, 7]) if (g.rng.next() < 0.45 + g.d * 0.55) items.push([enemy(g), dx, 0]);
+    for (const dx of [2, 5, 7]) if (g.rng.next() < 0.7 + g.d * 0.3) items.push([enemy(g), dx, 0]);
     if (!items.length) items.push([enemy(g), 4, 0]);
     c.flat(n, items);
   },
@@ -97,7 +97,42 @@ export const SEGMENTS = {
   checkpoint(c, g) { c.flat(6, [['C', 2]]); },
 };
 
+// Guarantee a minimum number of enemies: top up on flat, hazard-free ground that is far from pits, the start and the goal.
+function topUpEnemies(b, g, target, minCol, maxCol) {
+  const grid = b.g, h = b.h;
+  const floorRow = (c) => { for (let r = 0; r < h; r++) { const ch = grid[r][c]; if (ch === '#' || ch === 'B' || ch === '/' || ch === '\\') return ch === '#' || ch === 'B' ? r : -2; } return -1; };
+  const ENEMY = new Set(['e', 'k', 'b', 't', 'r', 'w', 'h', 'm', 'v']);
+  let have = 0; for (let r = 0; r < h; r++) for (let c = 0; c < b.w; c++) if (ENEMY.has(grid[r][c])) have++;
+  const cols = []; for (let c = minCol; c < maxCol; c++) cols.push(c);
+  for (let i = cols.length - 1; i > 0; i--) { const j = g.rng.int(0, i); [cols[i], cols[j]] = [cols[j], cols[i]]; }     // seeded shuffle
+  const placed = [];
+  for (const c of cols) {
+    if (have >= target) break;
+    if (placed.some((p) => Math.abs(p - c) < 5)) continue;
+    const fr = floorRow(c); if (fr < 3) continue;
+    let ok = true;
+    for (let k = -5; k <= 5 && ok; k++) if (floorRow(c + k) !== fr) ok = false;                 // flat, no pits/slopes/steps nearby
+    for (let k = -3; k <= 3 && ok; k++) for (let r = fr - 3; r < fr && ok; r++) if (grid[r][c + k] !== '.') ok = false;   // nothing else standing there
+    if (!ok) continue;
+    grid[fr - 1][c] = g.rng.pick(g.prof.ground.slice(0, Math.min(g.prof.ground.length, 2 + Math.round(g.d * (g.prof.ground.length - 1)))));
+    placed.push(c); have++;
+  }
+}
+
+// Deterministic: tries a few seed offsets and keeps the first level with enough enemies (>= 75% of the target).
 export function composeLevel(world, index, seedOffset = 0) {
+  const target = Math.round(6 + world * 1.6 + index * 3);
+  let best = null;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const d = composeOnce(world, index, seedOffset + attempt * 131);
+    const n = d.tiles.join('').split('').filter((c) => 'ekbtrwhmv'.includes(c)).length;
+    if (!best || n > best.n) best = { d, n };
+    if (n >= target * 0.75) return d;
+  }
+  return best.d;
+}
+
+function composeOnce(world, index, seedOffset) {
   const info = levelInfo(world + '-' + (index + 1)), prof = PROFILES[world];
   const rng = new RNG(world * 1009 + index * 7919 + seedOffset);
   const d = Math.min(1, ((world - 2) / 6) * 0.6 + (index / 2) * 0.4);
@@ -106,7 +141,7 @@ export function composeLevel(world, index, seedOffset = 0) {
   const b = new LevelBuilder(length + 60, 14), c = new Cursor(b, 11, 0);
   c.flat(10, [['P', 2]]);
   let lastCp = 0, lastSupply = 0, lastKind = 'run';
-  const weights = { ...prof.seg };
+  const weights = { ...prof.seg }; weights.arena = (weights.arena || 0) + 1.5;
   if (index === 0) { weights.crossing = Math.min(weights.crossing, 0.4); }
   if (index === 2) weights.crossing = (weights.crossing || 0) + 0.6;
   while (c.x < length) {
@@ -121,5 +156,6 @@ export function composeLevel(world, index, seedOffset = 0) {
     SEGMENTS[kind](c, g); lastKind = kind;
   }
   c.flat(16, [['G', 12], ['o', 3], ['o', 4], ['o', 5], ['o', 6]]);
+  topUpEnemies(b, g, Math.round(6 + world * 1.6 + index * 3), 16, c.x - 24);
   return b.build({ id: world + '-' + (index + 1), name: info.name, world, theme: info.theme, par: info.par, music: MUSIC_BY_WORLD[world], physics: prof.physics });
 }

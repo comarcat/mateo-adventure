@@ -32,7 +32,8 @@ export class TitleState {
     const f = Math.floor(this.t / 8) % 4;
     drawSprite(ctx, MATEO.run[f], ((this.t * 1.2) % (W + 40)) - 20, H - 48, 1);
     this.menu.draw(ctx, this.t);
-    drawText(ctx, 'CLASSIC CAMPAIGN - WORLD 1', W / 2, 100, '#fff', 1, { align: 'center', shadow: '#2a1b3d' });
-    drawText(ctx, 'ARROWS + ENTER / GAMEPAD', W / 2, 212, '#2a1b3d', 1, { align: 'center' });
+    drawText(ctx, 'A 90S STYLE ADVENTURE', W / 2, 100, '#fff', 1, { align: 'center', shadow: '#2a1b3d' });
+    drawText(ctx, 'ARROWS + ENTER / PAD / TOUCH', W / 2, 212, '#2a1b3d', 1, { align: 'center' });
+    drawText(ctx, 'V1.0', W - 6, 4, '#2a1b3d', 1, { align: 'right' });
   }
 }

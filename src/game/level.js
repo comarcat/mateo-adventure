@@ -18,6 +18,7 @@ import { drawSprite } from '../gfx/sprites.js';
 import { drawText } from '../engine/font.js';
 import { ENEMY_BY_CHAR } from '../data/enemies.js';
 import { PICKUPS, PICKUP_TYPES } from '../data/pickups.js';
+import { POWERS } from '../data/powers.js';
 
 const assetCache = {};     // baked per theme, shared across level restarts
 export function assetsFor(theme) {
@@ -48,9 +49,11 @@ export class Level {
     this.enemies = []; this.pickups = []; this.boss = null; this.newPower = null; this.bumps = new Map(); this.springT = new Map();
     this.frames = 0; this.status = 'play'; this.clearT = 0; this.deadT = 0;
     this.combo = 0; this.comboT = 0; this.damageTaken = 0; this.levelScore = 0; this.kills = 0;
-    this.cheatInvincible = false; this.cheatInfiniteRush = false; this.showBoxes = false;
+    const ch = game.cheats || {};
+    this.cheatInvincible = !!ch.invincible; this.cheatInfiniteRush = !!ch.rush; this.showBoxes = !!ch.boxes;
     this.parseMarkers();
     this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp, run.powers || []);
+    if (ch.powers) for (const id of Object.keys(POWERS)) this.hero.powers.add(id);
     this.respawnAt = { ...this.start };
     this.camera.snap(this.hero, this.map.pxW, this.map.pxH);
   }

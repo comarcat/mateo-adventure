@@ -11,6 +11,8 @@ export class Gfx {
     this.resize = this.resize.bind(this);
     addEventListener('resize', this.resize);
     document.addEventListener('fullscreenchange', this.resize);
+    const fsBtn = document.getElementById('fs');
+    if (fsBtn && !this.fullscreenSupported) fsBtn.style.display = 'none';
     this.resize();
   }
   resize() {
@@ -22,9 +24,15 @@ export class Gfx {
     this.canvas.style.height = (H * this.scale) / dpr + 'px';
   }
   get fullscreen() { return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+  get fullscreenSupported() { const el = this.container; return !!(el.requestFullscreen || el.webkitRequestFullscreen); }
+  // Never throws: browsers reject the request without a user gesture, and some (iPhone Safari) have no fullscreen at all.
   toggleFullscreen() {
+    if (!this.fullscreenSupported) return false;
     const el = this.container;
-    if (this.fullscreen) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    else (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+    try {
+      const r = this.fullscreen ? (document.exitFullscreen || document.webkitExitFullscreen).call(document) : (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
+      if (r && r.catch) r.catch(() => {});
+    } catch (e) { return false; }
+    return true;
   }
 }
