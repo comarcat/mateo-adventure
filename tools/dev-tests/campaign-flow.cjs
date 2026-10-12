@@ -10,7 +10,7 @@ const { chromium } = require('playwright');
   const st = () => p.evaluate(() => game.stack.map(s => s.name).join('>') + (game.top.name === 'map' ? ' w' + game.top.world + ' n' + game.top.node + (game.top.moving ? ' moving' : '') : ''));
   // 1. double jump (needs the power): give it and test in 1-1
   const dj = await p.evaluate(() => {
-    game.save.newCampaign(); game.save.progress.powers = ['doublejump']; game.run = game.campaignRun(); game.change('play', { level: '1-1', campaign: true });
+    game.save.newCampaign(); game.save.progress.powers = ['doublejump']; game.run = game.campaignRun(); game.run.slot = 'doublejump'; game.change('play', { level: '1-1', campaign: true });
     const L = game.top.level; let f = 0, apexes = [], lastVy = 0;
     // press jump at frame 5, release; press again at frame 30 in mid-air
     game.input.poll = function () { this.prev = this.cur; this.cur = { jump: (f >= 5 && f < 25) || (f >= 40 && f < 60) }; };

@@ -1767,7 +1767,7 @@ const { W, H } = __m["src/config.js"];
 const { drawText } = __m["src/engine/font.js"];
 const { keyLabel, REMAPPABLE, DEFAULT_BINDINGS } = __m["src/engine/input.js"];
 
-const NAMES = { left: 'MOVE LEFT', right: 'MOVE RIGHT', up: 'UP / LOOK', down: 'DOWN / DROP', jump: 'JUMP', shoot: 'SHOOT', rush: 'RUSH', next: 'NEXT WEAPON', prev: 'PREV WEAPON', pause: 'PAUSE' };
+const NAMES = { left: 'MOVE LEFT', right: 'MOVE RIGHT', up: 'UP / LOOK', down: 'DOWN / DROP', jump: 'JUMP', shoot: 'SHOOT', rush: 'RUSH', next: 'NEXT POWER', prev: 'PREV POWER', pause: 'PAUSE' };
 const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'SELECT', 'START', 'L3', 'R3', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT'];
 
 // Controls: shows and REMAPS keyboard keys and gamepad buttons. Up/down = pick action, left/right = keyboard or pad column,
@@ -2085,6 +2085,26 @@ class Platform {
 
 return { Platform };
 })();
+// ---- src/data/powers.js
+__m["src/data/powers.js"] = (function () {
+// Boss powers. Defeating a world's boss permanently unlocks its power.
+//   kind 'ability' = always on once earned (double jump, dash...)
+//   kind 'weapon'  = joins the Q/E weapon cycle with the gun and laser
+//   impl           = true when the gameplay for it exists (the rest arrive in Stage 5)
+const POWERS = {
+  doublejump: { name: 'DOUBLE JUMP', kind: 'ability', world: 1, impl: true,  hint: 'JUMP AGAIN IN THE AIR' },
+  airdash:    { name: 'AIR DASH',    kind: 'ability', world: 2, impl: true, hint: 'RUSH IN MID-AIR' },
+  iceshot:    { name: 'ICE SHOT',    kind: 'weapon',  world: 3, impl: true, hint: 'FREEZES ENEMIES' },
+  wallslide:  { name: 'WALL CLIMB',  kind: 'ability', world: 4, impl: true, hint: 'SLIDE AND JUMP OFF WALLS' },
+  magnet:     { name: 'COIN MAGNET', kind: 'ability', world: 5, impl: true, hint: 'PULLS COINS TO YOU' },
+  fireshot:   { name: 'FIRE SHOT',   kind: 'weapon',  world: 6, impl: true, hint: 'BURNS THROUGH FOES' },
+  glide:      { name: 'GLIDE',       kind: 'ability', world: 7, impl: true, hint: 'HOLD JUMP TO FLOAT' },
+  groundpound:{ name: 'GROUND POUND',kind: 'ability', world: 8, impl: true, hint: 'DOWN IN AIR TO SLAM' },
+};
+const POWER_BY_WORLD = Object.fromEntries(Object.entries(POWERS).map(([k, v]) => [v.world, k]));
+
+return { POWERS, POWER_BY_WORLD };
+})();
 // ---- src/entities/hero.js
 __m["src/entities/hero.js"] = (function () {
 // Mateo, the hero. Tight platformer feel: coyote time, jump buffering, variable jump height,
@@ -2092,6 +2112,7 @@ __m["src/entities/hero.js"] = (function () {
 const { moveXBy, moveY, K } = __m["src/engine/physics.js"];
 const { MATEO, drawSprite } = __m["src/gfx/sprites.js"];
 const { SHIELD_RING } = __m["src/gfx/art.js"];
+const { POWERS } = __m["src/data/powers.js"];
 
 const SHIELD_HITS = 8;
 
@@ -2109,18 +2130,34 @@ class Hero {
     this.maxHp = maxHp; this.hp = maxHp; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
     this.star = 0;                       // timed invulnerability power-up (Stage 2)
     this.meter = 100; this.rushing = false; this.rushCd = 0;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.shootCd = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.slot = 'base'; this.shootCd = 0;
     this.riding = null; this.animT = 0; this.trail = []; this.noCut = false;
     this.airDashes = 1; this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.wallCoyote = 0; this.wallDirMem = 0; this.noCtlX = 0; this.gliding = false;
   }
 
   respawn(x, y) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = this.maxHp; this.dead = false;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.star = 0; this.deathT = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.star = 0; this.deathT = 0;
+    if (!this.slotList().includes(this.slot)) this.slot = 'base';
     this.invuln = 120; this.hurtT = 0; this.meter = 100; this.rushing = false; this.rushCd = 0; this.riding = null; this.trail.length = 0;
     this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.noCtlX = 0; this.gliding = false;
     this.grounded = false;
   }
+
+  // ---- power slots (Mega Man style): ONE slot is active at a time, cycled with Q/E.
+  //   'base' = no special power;  an ability power (double jump, air dash...) = that ability is on;
+  //   'gun' / 'laser' / 'ice' / 'fire' = that weapon is selected for the shoot button.
+  get weapon() { return ['gun', 'laser', 'ice', 'fire'].includes(this.slot) ? this.slot : null; }
+  set weapon(v) { this.slot = v || 'base'; }
+  can(id) { return this.powers.has(id) && this.slot === id; }          // is this ability currently active?
+  slotList() {
+    const l = ['base'];
+    for (const [id, p] of Object.entries(POWERS)) if (p.kind === 'ability' && this.powers.has(id)) l.push(id);
+    return l.concat(this.availableWeapons());
+  }
+  setSlot(slot, lv) { this.slot = slot; if (lv && lv.run) lv.run.slot = slot; }
+  // pick up a new power: switch to it right away
+  equip(slot, lv) { if (slot === 'iceshot') slot = 'ice'; else if (slot === 'fireshot') slot = 'fire'; this.setSlot(slot, lv); }
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
@@ -2172,11 +2209,11 @@ class Hero {
     // ---- RUSH: hold to burst forward at high speed for a limited time, then cool down.
     // ---- boss power AIR DASH: a short horizontal burst in mid-air (once per jump)
     if (this.dashT > 0) { this.dashT--; if (this.dashT === 0) this.vx = this.facing * 1.8; }
-    else if (ctl && this.powers.has('airdash') && !this.grounded && this.airDashes > 0 && inp.pressed('rush')) {
+    else if (ctl && this.can('airdash') && !this.grounded && this.airDashes > 0 && inp.pressed('rush')) {
       this.airDashes--; this.dashT = 14; this.vy = 0; this.pounding = false; lv.audio.sfx('dash');
       lv.particles.emit(this.cx - this.facing * 4, this.cy, 6, { angle: this.facing > 0 ? Math.PI : 0, spread: 0.7, speed: 1.6, color: ['#fff', '#7af0ff'], life: 14 });
     }
-    const airDashOwned = this.powers.has('airdash') && !this.grounded;
+    const airDashOwned = this.can('airdash') && !this.grounded;
     const wantRush = ctl && inp.down('rush');
     if (this.rushing) {
       if (!wantRush || this.meter <= 0) { this.rushing = false; this.rushCd = this.meter <= 0 ? 90 : 12; }
@@ -2212,8 +2249,9 @@ class Hero {
     if (this.shootCd > 0) this.shootCd--;
     if (this.energy < 100) this.energy = Math.min(100, this.energy + 0.07);
     if (ctl) {
-      if (inp.pressed('next')) this.cycleWeapon(1, lv);
-      if (inp.pressed('prev')) this.cycleWeapon(-1, lv);
+      if (!this.slotList().includes(this.slot)) this.setSlot('base', lv);       // e.g. ammo ran out
+      if (inp.pressed('next')) this.cycleSlot(1, lv);
+      if (inp.pressed('prev')) this.cycleSlot(-1, lv);
       this.tryShoot(lv, inp);
     }
 
@@ -2230,7 +2268,7 @@ class Hero {
       this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
       lv.particles.dust(this.cx, this.y + this.h);
       lv.audio.sfx('jump');
-    } else if (ctl && inp.pressed('jump') && !this.grounded && this.coyote <= 0 && this.airJumps > 0 && this.powers.has('doublejump')) {
+    } else if (ctl && inp.pressed('jump') && !this.grounded && this.coyote <= 0 && this.airJumps > 0 && this.can('doublejump')) {
       this.airJumps--; this.vy = -4.1; this.jumpBuf = 0; this.noCut = false;       // boss power: DOUBLE JUMP
       lv.particles.emit(this.cx, this.y + this.h, 8, { angle: Math.PI / 2, spread: 2.6, speed: 1.2, color: ['#fff', '#b06aff'], life: 16 });
       lv.audio.sfx('jump2');
@@ -2243,7 +2281,7 @@ class Hero {
 
     // ---- boss power WALL CLIMB: slide down walls while pushing into them, jump off them
     this.sliding = 0;
-    if (this.powers.has('wallslide') && !this.grounded && this.vy > 0 && ctl) {
+    if (this.can('wallslide') && !this.grounded && this.vy > 0 && ctl) {
       const mid = Math.floor((this.y + this.h / 2) / 16);
       const left = map.kind(Math.floor((this.x - 1) / 16), mid) === K.SOLID, right = map.kind(Math.floor((this.x + this.w + 1) / 16), mid) === K.SOLID;
       const side = right ? 1 : (left ? -1 : 0);
@@ -2257,9 +2295,9 @@ class Hero {
     }
     // ---- boss power GLIDE: hold jump while falling to float
     this.gliding = false;
-    if (this.powers.has('glide') && !this.grounded && this.vy > 0.6 && jumpHeld && !this.sliding && this.dashT <= 0 && !this.pounding) { this.vy = Math.min(this.vy, 0.7); this.gliding = true; }
+    if (this.can('glide') && !this.grounded && this.vy > 0.6 && jumpHeld && !this.sliding && this.dashT <= 0 && !this.pounding) { this.vy = Math.min(this.vy, 0.7); this.gliding = true; }
     // ---- boss power GROUND POUND: press down in the air to slam
-    if (this.powers.has('groundpound') && !this.grounded && ctl && inp.pressed('down') && !this.pounding && this.dashT <= 0 && this.vy > -1) {
+    if (this.can('groundpound') && !this.grounded && ctl && inp.pressed('down') && !this.pounding && this.dashT <= 0 && this.vy > -1) {
       this.pounding = true; this.vx = 0; this.vy = 6.2; lv.audio.sfx('dash');
     }
     if (this.pounding) { this.vy = Math.max(this.vy, 5.8); this.vx = 0; }
@@ -2306,27 +2344,27 @@ class Hero {
     if (this.powers.has('fireshot')) w.push('fire');
     return w;
   }
-  cycleWeapon(d, lv) {
-    const a = this.availableWeapons();
+  cycleSlot(d, lv) {
+    const a = this.slotList();
     if (a.length < 2) return;
-    this.weapon = a[(Math.max(0, a.indexOf(this.weapon)) + d + a.length) % a.length];
+    this.setSlot(a[(Math.max(0, a.indexOf(this.slot)) + d + a.length) % a.length], lv);
     lv.audio.sfx('menu');
+    const p = POWERS[this.slot];
+    lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO POWER' : this.slot.toUpperCase()), '#e0b8ff');
   }
   tryShoot(lv, inp) {
-    const a = this.availableWeapons();
-    if (!a.includes(this.weapon)) this.weapon = a[0] || null;
-    if (this.weapon === 'gun' && inp.down('shoot') && this.shootCd <= 0) {
+    const w = this.weapon;
+    if (w === 'gun' && inp.down('shoot') && this.shootCd <= 0) {
       lv.projectiles.fireGun(this.facing > 0 ? this.x + this.w : this.x, this.y + 5, this.facing);
       this.ammo--; this.shootCd = 11; lv.audio.sfx('shoot');
-    } else if (this.weapon === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
+    } else if (w === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
       lv.projectiles.fireLaser(this.facing > 0 ? this.x + this.w : this.x, this.y + 6, this.facing);
       this.charges--; this.shootCd = 22; lv.audio.sfx('laser'); lv.camera.shake(1, 4);
-    } else if ((this.weapon === 'ice' || this.weapon === 'fire') && inp.down('shoot') && this.shootCd <= 0 && this.energy >= 6) {
+    } else if ((w === 'ice' || w === 'fire') && inp.down('shoot') && this.shootCd <= 0 && this.energy >= 6) {
       const x = this.facing > 0 ? this.x + this.w : this.x;
-      if (this.weapon === 'ice') lv.projectiles.fireIce(x, this.y + 6, this.facing); else lv.projectiles.fireFire(x, this.y + 6, this.facing);
-      this.energy -= this.weapon === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(this.weapon);
-    } else if (inp.pressed('shoot') && !this.weapon) lv.audio.sfx('empty');
-    if (!this.availableWeapons().includes(this.weapon)) this.weapon = this.availableWeapons()[0] || null;
+      if (w === 'ice') lv.projectiles.fireIce(x, this.y + 6, this.facing); else lv.projectiles.fireFire(x, this.y + 6, this.facing);
+      this.energy -= w === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(w);
+    } else if (inp.pressed('shoot') && !w) lv.audio.sfx('empty');
   }
 
   landOnPlatforms(lv, prevBottom) {
@@ -3114,26 +3152,6 @@ const PICKUP_TYPES = { coin: 'o', star: '*', oneup: '1', shield: 's', gun: 'g', 
 
 return { PICKUPS, PICKUP_TYPES };
 })();
-// ---- src/data/powers.js
-__m["src/data/powers.js"] = (function () {
-// Boss powers. Defeating a world's boss permanently unlocks its power.
-//   kind 'ability' = always on once earned (double jump, dash...)
-//   kind 'weapon'  = joins the Q/E weapon cycle with the gun and laser
-//   impl           = true when the gameplay for it exists (the rest arrive in Stage 5)
-const POWERS = {
-  doublejump: { name: 'DOUBLE JUMP', kind: 'ability', world: 1, impl: true,  hint: 'JUMP AGAIN IN THE AIR' },
-  airdash:    { name: 'AIR DASH',    kind: 'ability', world: 2, impl: true, hint: 'RUSH IN MID-AIR' },
-  iceshot:    { name: 'ICE SHOT',    kind: 'weapon',  world: 3, impl: true, hint: 'FREEZES ENEMIES' },
-  wallslide:  { name: 'WALL CLIMB',  kind: 'ability', world: 4, impl: true, hint: 'SLIDE AND JUMP OFF WALLS' },
-  magnet:     { name: 'COIN MAGNET', kind: 'ability', world: 5, impl: true, hint: 'PULLS COINS TO YOU' },
-  fireshot:   { name: 'FIRE SHOT',   kind: 'weapon',  world: 6, impl: true, hint: 'BURNS THROUGH FOES' },
-  glide:      { name: 'GLIDE',       kind: 'ability', world: 7, impl: true, hint: 'HOLD JUMP TO FLOAT' },
-  groundpound:{ name: 'GROUND POUND',kind: 'ability', world: 8, impl: true, hint: 'DOWN IN AIR TO SLAM' },
-};
-const POWER_BY_WORLD = Object.fromEntries(Object.entries(POWERS).map(([k, v]) => [v.world, k]));
-
-return { POWERS, POWER_BY_WORLD };
-})();
 // ---- src/game/level.js
 __m["src/game/level.js"] = (function () {
 // A running level: tilemap + entities + hero + camera + particles. Owns the gameplay simulation.
@@ -3192,6 +3210,7 @@ class Level {
     this.parseMarkers();
     this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp, run.powers || []);
     if (ch.powers) for (const id of Object.keys(POWERS)) this.hero.powers.add(id);
+    if (run.slot && this.hero.slotList().includes(run.slot)) this.hero.slot = run.slot;
     this.respawnAt = { ...this.start };
     this.camera.snap(this.hero, this.map.pxW, this.map.pxH);
   }
@@ -3266,6 +3285,13 @@ class Level {
   }
   giveLife(x, y) { if (this.run.lives < 9) this.run.lives++; this.audio.sfx('1up'); this.popups.add(x, y - 8, '1UP', '#37d46a'); }
 
+  // A picked-up weapon is equipped right away, unless an ability power is selected (don't switch it off behind the player's back).
+  autoEquip(weapon, x, y) {
+    const h = this.hero;
+    if (h.slot === 'base' || h.slot === weapon || h.weapon) h.setSlot(weapon, this);
+    else this.popups.add(x, y - 8, weapon.toUpperCase() + ' READY (Q/E)', '#ffd84a');
+  }
+
   collect(p) {
     const h = this.hero, cx = p.x + 6, cy = p.y;
     switch (p.type) {
@@ -3273,9 +3299,9 @@ class Level {
       case 'star': h.star = 600; this.audio.sfx('powerup'); this.addScore(500, cx, cy); break;
       case 'oneup': this.giveLife(cx, cy); this.addScore(1000, cx, cy - 8); break;
       case 'shield': h.shield = 8; this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
-      case 'gun': h.ammo = Math.min(99, h.ammo + 20); h.weapon = 'gun'; this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
-      case 'laser': h.charges = Math.min(20, h.charges + 5); h.weapon = 'laser'; this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
-      case 'power': { const id = this.data.power; h.powers.add(id); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
+      case 'gun': h.ammo = Math.min(99, h.ammo + 20); this.autoEquip('gun', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'laser': h.charges = Math.min(20, h.charges + 5); this.autoEquip('laser', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'power': { const id = this.data.power; h.powers.add(id); h.equip(id, this); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
       case 'apple': h.hp = Math.min(h.maxHp, h.hp + 2); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+2 HP', '#ff7a7a'); break;
       case 'pizza': h.hp = Math.min(h.maxHp, h.hp + 4); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+4 HP', '#ff7a7a'); break;
     }
@@ -3363,7 +3389,7 @@ class Level {
     for (const p of this.pickups) {
       if (p.done) continue;
       if (this.hero.star > 0 && p.type === 'coin') { /* magnet-ish flair could go here */ }
-      if (p.type === 'coin' && h.powers.has('magnet')) {       // boss power: COIN MAGNET
+      if (p.type === 'coin' && h.can('magnet')) {       // boss power: COIN MAGNET
         const dx = h.cx - (p.x + 6), dy = h.cy - (p.y + 6), d = Math.hypot(dx, dy);
         if (d < 64 && d > 1) { p.x += dx / d * 2.8; p.y += dy / d * 2.8; }
       }
@@ -4086,6 +4112,7 @@ const { drawText } = __m["src/engine/font.js"];
 const { ICON, drawSprite } = __m["src/gfx/sprites.js"];
 const { ITEM_ART, COIN_ICON } = __m["src/gfx/art.js"];
 const { drawBossBar } = __m["src/entities/boss.js"];
+const { POWERS } = __m["src/data/powers.js"];
 
 const SH = '#2a1b3d';
 const label = (ctx, t, x, y, c = '#fff', o = {}) => drawText(ctx, t, x, y, c, 1, { shadow: SH, ...o });
@@ -4119,7 +4146,9 @@ function drawHUD(ctx, lv) {
     ctx.fillStyle = ice ? '#8ad8ff' : '#ff9a2e'; ctx.fillRect(x + 17, 30, Math.round(30 * h.energy / 100), 5); x += 52;
   }
   else if (h.weapon === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, 'X' + String(h.charges).padStart(2, '0'), x + 16, 29, '#7af0ff'); x += 46; }
-  if (h.availableWeapons().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
+  if (POWERS[h.slot]) { label(ctx, POWERS[h.slot].name, x, 29, '#e0b8ff'); x += POWERS[h.slot].name.length * 6 + 6; }
+  else if (h.slot === 'base' && h.slotList().length > 1) { label(ctx, 'NO POWER', x, 29, '#6b5a80'); x += 54; }
+  if (h.slotList().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
   label(ctx, 'LIVES X' + run.lives, W - 6, 29, '#fff', { align: 'right' });
   if (h.star > 0) {
     ctx.fillStyle = SH; ctx.fillRect(6, 40, 52, 5);
@@ -5036,7 +5065,7 @@ class EndlessLevel extends Level {
   arenaWon() {
     if (!this.arena) return;
     const a = this.arena, h = this.hero, pw = POWER_BY_WORLD[a.w];
-    if (pw && !h.powers.has(pw)) { h.powers.add(pw); if (!this.run.powers.includes(pw)) this.run.powers.push(pw); this.popups.add(h.cx, h.y - 20, POWERS[pw].name + '!', '#e0b8ff'); }
+    if (pw && !h.powers.has(pw)) { h.powers.add(pw); h.equip(pw, this); if (!this.run.powers.includes(pw)) this.run.powers.push(pw); this.popups.add(h.cx, h.y - 20, POWERS[pw].name + '!', '#e0b8ff'); }
     h.hp = h.maxHp; if (this.run.lives < 9) this.run.lives++; this.popups.add(h.cx, h.y - 32, 'BOSS DOWN!  +1UP', '#37d46a');
     this.audio.sfx('1up');
     for (let r = 0; r <= 10; r++) for (const c of [16, 17]) this.map.set(c, r, '.');          // open the exit

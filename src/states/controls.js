@@ -2,7 +2,7 @@ import { W, H } from '../config.js';
 import { drawText } from '../engine/font.js';
 import { keyLabel, REMAPPABLE, DEFAULT_BINDINGS } from '../engine/input.js';
 
-const NAMES = { left: 'MOVE LEFT', right: 'MOVE RIGHT', up: 'UP / LOOK', down: 'DOWN / DROP', jump: 'JUMP', shoot: 'SHOOT', rush: 'RUSH', next: 'NEXT WEAPON', prev: 'PREV WEAPON', pause: 'PAUSE' };
+const NAMES = { left: 'MOVE LEFT', right: 'MOVE RIGHT', up: 'UP / LOOK', down: 'DOWN / DROP', jump: 'JUMP', shoot: 'SHOOT', rush: 'RUSH', next: 'NEXT POWER', prev: 'PREV POWER', pause: 'PAUSE' };
 const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'SELECT', 'START', 'L3', 'R3', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT'];
 
 // Controls: shows and REMAPS keyboard keys and gamepad buttons. Up/down = pick action, left/right = keyboard or pad column,

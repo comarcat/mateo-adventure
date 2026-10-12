@@ -14,7 +14,7 @@ const { chromium } = require('playwright');
     game.input.poll = function () { this.prev = this.cur; const h = L.hero, dx = B.cx - h.cx, tap = f % 6 === 0; const plank = h.grounded && h.y < 150;
       let c = { right: dx > 0 && (tap || dx > 120), left: dx < 0 && (tap || dx < -120), shoot: true, jump: plank ? f % 4 === 0 : (f % 70) < 24, down: plank }; 
       const orb = L.pickups.find(q => q.type === 'power' && !q.done); if (orb) { c = { right: orb.x > h.x + 4, left: orb.x < h.x - 4, jump: orb.y < h.y - 10 && f % 30 < 12 }; }
-      this.cur = c; h.ammo = 99; };
+      this.cur = c; h.ammo = 99; if (h.slot === 'base') h.weapon = 'gun'; };
     for (f = 0; f < 12000; f++) { game.update(); if (game.top.name !== 'play') break; }
     log.afterFight = game.stack.map(s => s.name).join('>'); log.frames = f;
     return log;

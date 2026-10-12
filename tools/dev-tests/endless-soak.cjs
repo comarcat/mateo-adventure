@@ -23,7 +23,7 @@ const FRAMES = Number(process.argv[3] || 20000), EARLYBOSS = process.argv[4] ===
           if (orb) this.cur = { right: orb.x > h.x + 4, left: orb.x < h.x - 4, jump: orb.y < h.y - 10 && f % 30 < 12 };
           else if (B) { const dx = B.cx - h.cx, tap = f % 6 === 0; this.cur = { right: dx > 0 && (tap || dx > 120), left: dx < 0 && (tap || dx < -120), shoot: f % 2 === 0, jump: h.grounded && h.y < 150 ? f % 4 === 0 : (f % 70) < 24, down: h.grounded && h.y < 150 }; }
           else this.cur = { right: true };
-          h.ammo = 99; return;
+          h.ammo = 99; if (h.slot === 'base') h.weapon = 'gun'; return;
         }
         if (h.grounded) {
           const col = ax(5); let hasGround = false; for (let r = below; r < m.h; r++) { const kk = m.kind(col, r); if (kk === 1 || kk === 2 || kk === 4 || kk === 5) { hasGround = true; break; } }

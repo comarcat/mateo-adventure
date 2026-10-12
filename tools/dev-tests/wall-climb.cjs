@@ -8,7 +8,7 @@ const { chromium } = require('playwright');
   const out = await p.evaluate(() => {
     const res = {};
     for (const power of [true, false]) {
-      game.run = game.newRun(); game.run.powers = power ? ['wallslide'] : []; game.change('play', { level: 'test' });
+      game.run = game.newRun(); game.run.powers = power ? ['wallslide'] : []; game.run.slot = power ? 'wallslide' : 'base'; game.change('play', { level: 'test' });
       const L = game.top.level; L.cheatInvincible = true;
       for (let r = 0; r <= 10; r++) L.map.set(95, r, '#');          // tall wall at col 95
       const h = L.hero; h.respawn(95 * 16 - 11, 2 * 16); h.invuln = 0;

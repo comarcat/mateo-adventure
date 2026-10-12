@@ -29,7 +29,7 @@ Everything is remappable in **Options -> Controls** (keyboard and gamepad, saved
 | Jump (hold = higher) | Z / Space | A / Y | A |
 | Rush (hold) | C / Shift | B / RT | B |
 | Shoot | X | X / LT | X |
-| Previous / next weapon | Q / E | LB / RB | Q/E |
+| Previous / next power | Q / E | LB / RB | Q/E |
 | Pause | Esc / P / Enter | Start | II |
 | Menus: confirm / back | Enter, Space, Z / Esc, X | A / B | A / B |
 | Fullscreen / mute / touch controls | F / M / T | | |
@@ -53,7 +53,7 @@ Beat a world's boss to permanently earn its power:
 | 7 Cloud City | Storm Bird | Glide |
 | 8 Star Castle | The Dark King | Ground Pound |
 
-Movement powers are always on once earned; Ice/Fire shots join the Q/E weapon cycle (gun, laser, ice, fire) and use a regenerating energy bar.
+Powers are **switchable like Mega Man weapons**: press **Q / E** (LB / RB) to cycle *Base* (no power), every ability you have earned, and the weapons you can use (gun and laser while you have ammo, Ice and Fire shots). Only the selected power is active; the HUD shows which one. Ice/Fire use a regenerating energy bar. Picking up a gun or laser equips it automatically unless an ability is selected.
 
 **Endless Battle** - an infinite seeded world (same seed = same terrain, shareable). A storm wall chases you and speeds up, enemy waves
 sweep in, new enemy types unlock every zone, an elite mini-boss ends each zone and a major boss closes every 4th zone.

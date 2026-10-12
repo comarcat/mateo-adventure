@@ -54,6 +54,7 @@ export class Level {
     this.parseMarkers();
     this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp, run.powers || []);
     if (ch.powers) for (const id of Object.keys(POWERS)) this.hero.powers.add(id);
+    if (run.slot && this.hero.slotList().includes(run.slot)) this.hero.slot = run.slot;
     this.respawnAt = { ...this.start };
     this.camera.snap(this.hero, this.map.pxW, this.map.pxH);
   }
@@ -128,6 +129,13 @@ export class Level {
   }
   giveLife(x, y) { if (this.run.lives < 9) this.run.lives++; this.audio.sfx('1up'); this.popups.add(x, y - 8, '1UP', '#37d46a'); }
 
+  // A picked-up weapon is equipped right away, unless an ability power is selected (don't switch it off behind the player's back).
+  autoEquip(weapon, x, y) {
+    const h = this.hero;
+    if (h.slot === 'base' || h.slot === weapon || h.weapon) h.setSlot(weapon, this);
+    else this.popups.add(x, y - 8, weapon.toUpperCase() + ' READY (Q/E)', '#ffd84a');
+  }
+
   collect(p) {
     const h = this.hero, cx = p.x + 6, cy = p.y;
     switch (p.type) {
@@ -135,9 +143,9 @@ export class Level {
       case 'star': h.star = 600; this.audio.sfx('powerup'); this.addScore(500, cx, cy); break;
       case 'oneup': this.giveLife(cx, cy); this.addScore(1000, cx, cy - 8); break;
       case 'shield': h.shield = 8; this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
-      case 'gun': h.ammo = Math.min(99, h.ammo + 20); h.weapon = 'gun'; this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
-      case 'laser': h.charges = Math.min(20, h.charges + 5); h.weapon = 'laser'; this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
-      case 'power': { const id = this.data.power; h.powers.add(id); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
+      case 'gun': h.ammo = Math.min(99, h.ammo + 20); this.autoEquip('gun', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'laser': h.charges = Math.min(20, h.charges + 5); this.autoEquip('laser', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'power': { const id = this.data.power; h.powers.add(id); h.equip(id, this); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
       case 'apple': h.hp = Math.min(h.maxHp, h.hp + 2); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+2 HP', '#ff7a7a'); break;
       case 'pizza': h.hp = Math.min(h.maxHp, h.hp + 4); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+4 HP', '#ff7a7a'); break;
     }
@@ -225,7 +233,7 @@ export class Level {
     for (const p of this.pickups) {
       if (p.done) continue;
       if (this.hero.star > 0 && p.type === 'coin') { /* magnet-ish flair could go here */ }
-      if (p.type === 'coin' && h.powers.has('magnet')) {       // boss power: COIN MAGNET
+      if (p.type === 'coin' && h.can('magnet')) {       // boss power: COIN MAGNET
         const dx = h.cx - (p.x + 6), dy = h.cy - (p.y + 6), d = Math.hypot(dx, dy);
         if (d < 64 && d > 1) { p.x += dx / d * 2.8; p.y += dy / d * 2.8; }
       }

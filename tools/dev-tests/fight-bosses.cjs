@@ -18,7 +18,7 @@ const { chromium } = require('playwright');
         const dx = B.cx - h.cx, tap = f % 6 === 0;
         const onPlank = h.grounded && h.y < 150 && !B.def.flying;
         this.cur = { right: dx > 0 && (tap || dx > 120), left: dx < 0 && (tap || dx < -120), shoot: true, jump: onPlank ? (f % 4 === 0) : (f % 70) < 24, down: onPlank };
-        h.ammo = 99;
+        h.ammo = 99; if (h.slot === 'base') h.weapon = 'gun';
       };
       for (f = 0; f < 9000; f++) {
         game.update(); const lv = game.top.level; if (!lv || lv !== L) break;

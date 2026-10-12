@@ -168,7 +168,7 @@ export class EndlessLevel extends Level {
   arenaWon() {
     if (!this.arena) return;
     const a = this.arena, h = this.hero, pw = POWER_BY_WORLD[a.w];
-    if (pw && !h.powers.has(pw)) { h.powers.add(pw); if (!this.run.powers.includes(pw)) this.run.powers.push(pw); this.popups.add(h.cx, h.y - 20, POWERS[pw].name + '!', '#e0b8ff'); }
+    if (pw && !h.powers.has(pw)) { h.powers.add(pw); h.equip(pw, this); if (!this.run.powers.includes(pw)) this.run.powers.push(pw); this.popups.add(h.cx, h.y - 20, POWERS[pw].name + '!', '#e0b8ff'); }
     h.hp = h.maxHp; if (this.run.lives < 9) this.run.lives++; this.popups.add(h.cx, h.y - 32, 'BOSS DOWN!  +1UP', '#37d46a');
     this.audio.sfx('1up');
     for (let r = 0; r <= 10; r++) for (const c of [16, 17]) this.map.set(c, r, '.');          // open the exit

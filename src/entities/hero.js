@@ -3,6 +3,7 @@
 import { moveXBy, moveY, K } from '../engine/physics.js';
 import { MATEO, drawSprite } from '../gfx/sprites.js';
 import { SHIELD_RING } from '../gfx/art.js';
+import { POWERS } from '../data/powers.js';
 
 export const SHIELD_HITS = 8;
 
@@ -20,18 +21,34 @@ export class Hero {
     this.maxHp = maxHp; this.hp = maxHp; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
     this.star = 0;                       // timed invulnerability power-up (Stage 2)
     this.meter = 100; this.rushing = false; this.rushCd = 0;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.shootCd = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.slot = 'base'; this.shootCd = 0;
     this.riding = null; this.animT = 0; this.trail = []; this.noCut = false;
     this.airDashes = 1; this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.wallCoyote = 0; this.wallDirMem = 0; this.noCtlX = 0; this.gliding = false;
   }
 
   respawn(x, y) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = this.maxHp; this.dead = false;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.star = 0; this.deathT = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.star = 0; this.deathT = 0;
+    if (!this.slotList().includes(this.slot)) this.slot = 'base';
     this.invuln = 120; this.hurtT = 0; this.meter = 100; this.rushing = false; this.rushCd = 0; this.riding = null; this.trail.length = 0;
     this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.noCtlX = 0; this.gliding = false;
     this.grounded = false;
   }
+
+  // ---- power slots (Mega Man style): ONE slot is active at a time, cycled with Q/E.
+  //   'base' = no special power;  an ability power (double jump, air dash...) = that ability is on;
+  //   'gun' / 'laser' / 'ice' / 'fire' = that weapon is selected for the shoot button.
+  get weapon() { return ['gun', 'laser', 'ice', 'fire'].includes(this.slot) ? this.slot : null; }
+  set weapon(v) { this.slot = v || 'base'; }
+  can(id) { return this.powers.has(id) && this.slot === id; }          // is this ability currently active?
+  slotList() {
+    const l = ['base'];
+    for (const [id, p] of Object.entries(POWERS)) if (p.kind === 'ability' && this.powers.has(id)) l.push(id);
+    return l.concat(this.availableWeapons());
+  }
+  setSlot(slot, lv) { this.slot = slot; if (lv && lv.run) lv.run.slot = slot; }
+  // pick up a new power: switch to it right away
+  equip(slot, lv) { if (slot === 'iceshot') slot = 'ice'; else if (slot === 'fireshot') slot = 'fire'; this.setSlot(slot, lv); }
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
@@ -83,11 +100,11 @@ export class Hero {
     // ---- RUSH: hold to burst forward at high speed for a limited time, then cool down.
     // ---- boss power AIR DASH: a short horizontal burst in mid-air (once per jump)
     if (this.dashT > 0) { this.dashT--; if (this.dashT === 0) this.vx = this.facing * 1.8; }
-    else if (ctl && this.powers.has('airdash') && !this.grounded && this.airDashes > 0 && inp.pressed('rush')) {
+    else if (ctl && this.can('airdash') && !this.grounded && this.airDashes > 0 && inp.pressed('rush')) {
       this.airDashes--; this.dashT = 14; this.vy = 0; this.pounding = false; lv.audio.sfx('dash');
       lv.particles.emit(this.cx - this.facing * 4, this.cy, 6, { angle: this.facing > 0 ? Math.PI : 0, spread: 0.7, speed: 1.6, color: ['#fff', '#7af0ff'], life: 14 });
     }
-    const airDashOwned = this.powers.has('airdash') && !this.grounded;
+    const airDashOwned = this.can('airdash') && !this.grounded;
     const wantRush = ctl && inp.down('rush');
     if (this.rushing) {
       if (!wantRush || this.meter <= 0) { this.rushing = false; this.rushCd = this.meter <= 0 ? 90 : 12; }
@@ -123,8 +140,9 @@ export class Hero {
     if (this.shootCd > 0) this.shootCd--;
     if (this.energy < 100) this.energy = Math.min(100, this.energy + 0.07);
     if (ctl) {
-      if (inp.pressed('next')) this.cycleWeapon(1, lv);
-      if (inp.pressed('prev')) this.cycleWeapon(-1, lv);
+      if (!this.slotList().includes(this.slot)) this.setSlot('base', lv);       // e.g. ammo ran out
+      if (inp.pressed('next')) this.cycleSlot(1, lv);
+      if (inp.pressed('prev')) this.cycleSlot(-1, lv);
       this.tryShoot(lv, inp);
     }
 
@@ -141,7 +159,7 @@ export class Hero {
       this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
       lv.particles.dust(this.cx, this.y + this.h);
       lv.audio.sfx('jump');
-    } else if (ctl && inp.pressed('jump') && !this.grounded && this.coyote <= 0 && this.airJumps > 0 && this.powers.has('doublejump')) {
+    } else if (ctl && inp.pressed('jump') && !this.grounded && this.coyote <= 0 && this.airJumps > 0 && this.can('doublejump')) {
       this.airJumps--; this.vy = -4.1; this.jumpBuf = 0; this.noCut = false;       // boss power: DOUBLE JUMP
       lv.particles.emit(this.cx, this.y + this.h, 8, { angle: Math.PI / 2, spread: 2.6, speed: 1.2, color: ['#fff', '#b06aff'], life: 16 });
       lv.audio.sfx('jump2');
@@ -154,7 +172,7 @@ export class Hero {
 
     // ---- boss power WALL CLIMB: slide down walls while pushing into them, jump off them
     this.sliding = 0;
-    if (this.powers.has('wallslide') && !this.grounded && this.vy > 0 && ctl) {
+    if (this.can('wallslide') && !this.grounded && this.vy > 0 && ctl) {
       const mid = Math.floor((this.y + this.h / 2) / 16);
       const left = map.kind(Math.floor((this.x - 1) / 16), mid) === K.SOLID, right = map.kind(Math.floor((this.x + this.w + 1) / 16), mid) === K.SOLID;
       const side = right ? 1 : (left ? -1 : 0);
@@ -168,9 +186,9 @@ export class Hero {
     }
     // ---- boss power GLIDE: hold jump while falling to float
     this.gliding = false;
-    if (this.powers.has('glide') && !this.grounded && this.vy > 0.6 && jumpHeld && !this.sliding && this.dashT <= 0 && !this.pounding) { this.vy = Math.min(this.vy, 0.7); this.gliding = true; }
+    if (this.can('glide') && !this.grounded && this.vy > 0.6 && jumpHeld && !this.sliding && this.dashT <= 0 && !this.pounding) { this.vy = Math.min(this.vy, 0.7); this.gliding = true; }
     // ---- boss power GROUND POUND: press down in the air to slam
-    if (this.powers.has('groundpound') && !this.grounded && ctl && inp.pressed('down') && !this.pounding && this.dashT <= 0 && this.vy > -1) {
+    if (this.can('groundpound') && !this.grounded && ctl && inp.pressed('down') && !this.pounding && this.dashT <= 0 && this.vy > -1) {
       this.pounding = true; this.vx = 0; this.vy = 6.2; lv.audio.sfx('dash');
     }
     if (this.pounding) { this.vy = Math.max(this.vy, 5.8); this.vx = 0; }
@@ -217,27 +235,27 @@ export class Hero {
     if (this.powers.has('fireshot')) w.push('fire');
     return w;
   }
-  cycleWeapon(d, lv) {
-    const a = this.availableWeapons();
+  cycleSlot(d, lv) {
+    const a = this.slotList();
     if (a.length < 2) return;
-    this.weapon = a[(Math.max(0, a.indexOf(this.weapon)) + d + a.length) % a.length];
+    this.setSlot(a[(Math.max(0, a.indexOf(this.slot)) + d + a.length) % a.length], lv);
     lv.audio.sfx('menu');
+    const p = POWERS[this.slot];
+    lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO POWER' : this.slot.toUpperCase()), '#e0b8ff');
   }
   tryShoot(lv, inp) {
-    const a = this.availableWeapons();
-    if (!a.includes(this.weapon)) this.weapon = a[0] || null;
-    if (this.weapon === 'gun' && inp.down('shoot') && this.shootCd <= 0) {
+    const w = this.weapon;
+    if (w === 'gun' && inp.down('shoot') && this.shootCd <= 0) {
       lv.projectiles.fireGun(this.facing > 0 ? this.x + this.w : this.x, this.y + 5, this.facing);
       this.ammo--; this.shootCd = 11; lv.audio.sfx('shoot');
-    } else if (this.weapon === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
+    } else if (w === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
       lv.projectiles.fireLaser(this.facing > 0 ? this.x + this.w : this.x, this.y + 6, this.facing);
       this.charges--; this.shootCd = 22; lv.audio.sfx('laser'); lv.camera.shake(1, 4);
-    } else if ((this.weapon === 'ice' || this.weapon === 'fire') && inp.down('shoot') && this.shootCd <= 0 && this.energy >= 6) {
+    } else if ((w === 'ice' || w === 'fire') && inp.down('shoot') && this.shootCd <= 0 && this.energy >= 6) {
       const x = this.facing > 0 ? this.x + this.w : this.x;
-      if (this.weapon === 'ice') lv.projectiles.fireIce(x, this.y + 6, this.facing); else lv.projectiles.fireFire(x, this.y + 6, this.facing);
-      this.energy -= this.weapon === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(this.weapon);
-    } else if (inp.pressed('shoot') && !this.weapon) lv.audio.sfx('empty');
-    if (!this.availableWeapons().includes(this.weapon)) this.weapon = this.availableWeapons()[0] || null;
+      if (w === 'ice') lv.projectiles.fireIce(x, this.y + 6, this.facing); else lv.projectiles.fireFire(x, this.y + 6, this.facing);
+      this.energy -= w === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(w);
+    } else if (inp.pressed('shoot') && !w) lv.audio.sfx('empty');
   }
 
   landOnPlatforms(lv, prevBottom) {

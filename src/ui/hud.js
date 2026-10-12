@@ -3,6 +3,7 @@ import { drawText } from '../engine/font.js';
 import { ICON, drawSprite } from '../gfx/sprites.js';
 import { ITEM_ART, COIN_ICON } from '../gfx/art.js';
 import { drawBossBar } from '../entities/boss.js';
+import { POWERS } from '../data/powers.js';
 
 const SH = '#2a1b3d';
 const label = (ctx, t, x, y, c = '#fff', o = {}) => drawText(ctx, t, x, y, c, 1, { shadow: SH, ...o });
@@ -36,7 +37,9 @@ export function drawHUD(ctx, lv) {
     ctx.fillStyle = ice ? '#8ad8ff' : '#ff9a2e'; ctx.fillRect(x + 17, 30, Math.round(30 * h.energy / 100), 5); x += 52;
   }
   else if (h.weapon === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, 'X' + String(h.charges).padStart(2, '0'), x + 16, 29, '#7af0ff'); x += 46; }
-  if (h.availableWeapons().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
+  if (POWERS[h.slot]) { label(ctx, POWERS[h.slot].name, x, 29, '#e0b8ff'); x += POWERS[h.slot].name.length * 6 + 6; }
+  else if (h.slot === 'base' && h.slotList().length > 1) { label(ctx, 'NO POWER', x, 29, '#6b5a80'); x += 54; }
+  if (h.slotList().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
   label(ctx, 'LIVES X' + run.lives, W - 6, 29, '#fff', { align: 'right' });
   if (h.star > 0) {
     ctx.fillStyle = SH; ctx.fillRect(6, 40, 52, 5);
