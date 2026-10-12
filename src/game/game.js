@@ -5,6 +5,9 @@ import { Input } from '../engine/input.js';
 import { Gfx } from '../engine/gfx.js';
 import { Audio } from '../audio/audio.js';
 import { save } from '../save/save.js';
+import { DIFFICULTY } from '../data/difficulty.js';
+import { LocalScoreBoard } from '../save/scores.js';
+import { TouchControls } from '../engine/touch.js';
 
 export class Game {
   constructor(canvas, container) {
@@ -12,15 +15,29 @@ export class Game {
     this.ctx = this.gfx.ctx;
     this.save = save;
     this.input = new Input(save.settings.bindings);
-    this.audio = new Audio(save.settings);
+    this.audio = new Audio(save.settings, () => save.flush());
     this.debug = DEBUG;
+    this.scores = new LocalScoreBoard(save);        // swap for RemoteScoreBoard to go online
+    this.endlessSeed = null;
+    this.cheats = { invincible: false, rush: false, boxes: false, powers: false, lives: 0 };      // debug menu (?debug)
     this.registry = {}; this.stack = [];
     this.run = this.newRun();
     this.frame = 0;
     this.toastEl = document.getElementById('toast'); this.toastT = 0;
     this.input.onToast = (m) => this.toast(m);
+    this.touch = new TouchControls(container, this.input);
+    this.input.audioUnlock = () => this.audio.unlock();
   }
-  newRun() { return { lives: 3, score: 0, coins: 0 }; }
+  get difficulty() { return DIFFICULTY[this.save.settings.difficulty] || DIFFICULTY.normal; }
+  newRun() { return { lives: 3, score: 0, coins: 0, powers: [], campaign: false }; }
+  // Campaign run state mirrors the saved progress; persistRun() writes it back.
+  campaignRun() { const p = this.save.progress; return { lives: p.lives, score: p.score, coins: p.coins, powers: [...p.powers], campaign: true }; }
+  // Total campaign play time in seconds (sum of best level times is not what players expect: we accumulate real play time)
+  campaignTime() { return this.save.progress.time || 0; }
+  persistRun() {
+    const p = this.save.progress, r = this.run;
+    p.lives = r.lives; p.score = r.score; p.coins = r.coins; p.powers = [...new Set(r.powers)]; this.save.flush();
+  }
 
   register(name, State) { this.registry[name] = State; }
   get top() { return this.stack[this.stack.length - 1]; }
@@ -36,7 +53,10 @@ export class Game {
     this.frame++;
     this.input.poll();
     if (this.input.key('KeyF') && this.top && !this.top.captureKeys) this.gfx.toggleFullscreen();
-    if (this.input.pressed('confirm') || this.input.pressed('jump')) this.audio.unlock();   // browsers need a user gesture
+    if (this.input.pressed('confirm') || this.input.pressed('jump')) this.audio.unlock();   // gamepad presses count as a gesture in most browsers
+    if (this.debug && this.input.key('F2') && this.top && this.top.name !== 'debug' && !this.top.captureKeys) { this.push('debug'); return; }
+    if (this.input.key('KeyT') && !(this.top && this.top.captureKeys)) this.toast(this.touch.toggle() ? 'TOUCH CONTROLS ON' : 'TOUCH CONTROLS OFF');
+    if (this.input.key('KeyM') && !(this.top && this.top.captureKeys)) this.toast(this.audio.toggleMute() ? 'SOUND MUTED' : 'SOUND ON');
     if (this.top) this.top.update();
     if (this.toastT > 0 && --this.toastT === 0) this.toastEl.style.display = 'none';
   }
@@ -45,6 +65,17 @@ export class Game {
     while (start > 0 && this.stack[start].transparent) start--;
     for (let i = Math.max(0, start); i < this.stack.length; i++) this.stack[i].draw(this.ctx);
   }
+  // Ask for initials if the score makes the top 10, then store it. cb(rank|0) is called when done.
+  submitScore(mode, entry, cb) {
+    this.scores.qualifies(mode, entry.score).then((ok) => {
+      if (!ok) return cb(0);
+      this.push('textentry', {
+        title: 'NEW HIGH SCORE!', subtitle: String(entry.score).padStart(7, '0'), length: 3, charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', initial: this.save.settings.lastName || 'AAA',
+        onDone: (name) => { this.pop(); this.save.settings.lastName = name; this.scores.submit(mode, { ...entry, name }).then((r) => cb(r.rank)); },
+      });
+    });
+  }
+
   // Pause when the tab/window loses focus.
   autoPause() { if (this.top && this.top.pausable) this.push('pause'); }
 

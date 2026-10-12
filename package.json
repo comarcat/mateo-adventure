@@ -1,0 +1,13 @@
+{
+  "name": "mateo-adventure",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "A 90s-style 2D platformer for kids. Vanilla JS + Canvas, no dependencies.",
+  "scripts": {
+    "serve": "python3 -m http.server 8000",
+    "validate": "node tools/validate.mjs",
+    "build": "node tools/bundle.mjs",
+    "test": "node tools/validate.mjs"
+  }
+}

@@ -13,12 +13,14 @@ export class TitleState {
     bg = bg || makeBackground(THEMES.grass); ts = ts || bakeTileset(THEMES.grass);
     this.t = 0;
     const g = this.game;
+    g.audio.music('title');
     const items = [
-      { label: 'START TEST LEVEL', action: () => { g.run = g.newRun(); g.change('play', { level: 'test' }); } },
+      { label: 'START', action: () => g.change('modeselect') },
+      { label: 'OPTIONS', action: () => g.push('options') },
       { label: 'CONTROLS', action: () => g.push('controls') },
-      { label: () => 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
+      { label: 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
     ];
-    this.menu = new Menu(items, { y: 138, gap: 15 });
+    this.menu = new Menu(items, { y: 122, gap: 14 });
   }
   update() { this.t++; this.menu.update(this.game); }
   draw(ctx) {
@@ -30,7 +32,7 @@ export class TitleState {
     const f = Math.floor(this.t / 8) % 4;
     drawSprite(ctx, MATEO.run[f], ((this.t * 1.2) % (W + 40)) - 20, H - 48, 1);
     this.menu.draw(ctx, this.t);
-    drawText(ctx, 'STAGE 1 - ENGINE DEMO', W / 2, 108, '#fff', 1, { align: 'center', shadow: '#2a1b3d' });
-    drawText(ctx, 'ARROWS + ENTER / GAMEPAD', W / 2, 212, '#2a1b3d', 1, { align: 'center' });
+    drawText(ctx, 'ARROWS + ENTER / PAD / TOUCH', W / 2, 212, '#2a1b3d', 1, { align: 'center' });
+    drawText(ctx, 'V1.0', W - 6, 4, '#2a1b3d', 1, { align: 'right' });
   }
 }
