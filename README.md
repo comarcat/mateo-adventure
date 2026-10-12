@@ -3,7 +3,7 @@
 A 90s-style 2D platformer (Mario-style stomping, Sonic-style rush, Mega Man-style boss powers) built with
 HTML5 Canvas + vanilla JavaScript ES modules. No build step, no dependencies, no external assets.
 
-**Status: Stage 5 of 7 (all 8 worlds, 8 bosses, 8 boss powers).** See `docs/STAGES.md` for the roadmap.
+**Status: Stage 6 of 7 (Endless Battle mode + records).** See `docs/STAGES.md` for the roadmap.
 
 ## Run it
 
@@ -85,3 +85,16 @@ arenas (`src/levels/arenas.js`). Enemies: Gloopy, Pricklit, Flutterbug, Pop Pod,
 Debug (`?debug`): `1`-`8` toggle each power, `P` gives everything.
 
 Testing: `node tools/validate.mjs` checks all 33 levels statically.
+
+## Endless Battle + records (Stage 6)
+
+- **Seeded infinite world** (`src/levels/endlessgen.js`): chunks are generated ahead of the hero from the seed and forgotten behind
+  (sliding map window + regular re-basing, so memory and coordinates stay bounded). Same seed = same terrain. Every chunk is built from the
+  campaign `SEGMENTS`, so jump distances are always valid.
+- **Zones** (140 tiles) cycle the 8 world themes; a new enemy type unlocks each zone; an **elite mini-boss** ends each normal zone;
+  a **major boss arena** closes every 4th zone (defeating it grants that world's power for the run, +1 life, full health).
+- **Storm wall** chases you from the left and speeds up with distance; **enemy waves** sweep in from the right.
+- **Records**: top 10 per mode, arcade initials (type or use arrows). Classic = score/world/time; Endless = score/distance/seed.
+  `src/save/scores.js` defines the `ScoreBoard` interface (all async) with `LocalScoreBoard` (localStorage) and a `RemoteScoreBoard` sketch.
+  **Local scores can be edited by players; a global leaderboard needs server-side validation** (replay the seed + inputs, plausibility
+  limits, rate limiting, signed submissions).

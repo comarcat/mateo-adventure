@@ -12,7 +12,7 @@ export class VictoryState {
     this.p = p; this.t = 0; const g = this.game;
     this.stars = Array.from({ length: 40 }, (_, i) => { const r = new RNG(i * 17 + 3); return { x: r.int(0, W), y: r.int(0, H), s: r.int(1, 3), c: r.pick(['#fff', '#ffd84a', '#7af0ff', '#ff9aa2']) }; });
     g.audio.music('victory', false);
-    this.menu = new Menu([{ label: 'CONTINUE', action: () => (g.afterVictory ? g.afterVictory(p) : g.change('modeselect')) }], { y: 196, gap: 14 });
+    this.menu = new Menu([{ label: 'CONTINUE', action: () => g.submitScore('classic', { score: p.score, world: 8, time: p.time }, (rank) => g.change('records', { mode: 'classic', rank })) }], { y: 196, gap: 14 });
   }
   update() { this.t++; if (this.t > 60) this.menu.update(this.game); }
   draw(ctx) {

@@ -309,7 +309,7 @@ export class Boss {
     const ws = WORLD_SCALING[Math.max(1, Math.min(8, lv.world))], df = lv.difficulty;
     this.type = type; this.isBoss = true;
     this.w = d.w; this.h = d.h; this.x = x - d.w / 2; this.y = y - d.h; this.vx = 0; this.vy = 0;
-    this.maxHp = Math.max(4, Math.round(d.baseHp * df.enemyHp * (1 + (ws.hpMul - 1) * 0.25))); this.hp = this.maxHp;   // bosses scale gently with world
+    this.maxHp = Math.max(4, Math.round(d.baseHp * df.enemyHp * (1 + (ws.hpMul - 1) * 0.25) * (lv.bossHpMul || 1))); this.hp = this.maxHp;   // bosses scale gently with world
     this.speedMul = ws.speedMul * df.enemySpeed;
     this.phase = 0; this.invuln = 0; this.flash = 0; this.dead = false; this.deadT = 0; this.active = false; this.awake = true;
     this.grounded = false; this.face = -1; this.t = 0; this.state = 'idle'; this.alpha = 1; this.shakeX = 0;

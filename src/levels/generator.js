@@ -8,6 +8,7 @@ import { MUSIC_BY_WORLD } from '../audio/tracks.js';
 
 // seg = relative weights of each segment type; ground/air = enemy chars available (earlier = more common/earlier in the world)
 export const PROFILES = {
+  1: { ground: ['e', 'k', 't', 'r'], air: ['b'], seg: { run: 3, gap: 2, hill: 2.5, steps: 1.5, spikes: 1.5, planks: 1.5, arena: 2, blocks: 1.5, spring: 0.6, crossing: 0.3 } },
   2: { ground: ['e', 'k', 'r', 'w'], air: ['b'], seg: { run: 3, gap: 1, hill: 3, steps: 1, spikes: 3, planks: 1, arena: 3, blocks: 1, spring: 0.5, crossing: 0 } },
   3: { ground: ['e', 'h', 'w', 'k'], air: ['b'], seg: { run: 2, gap: 1.5, hill: 4, steps: 2, spikes: 3, planks: 1, arena: 2, blocks: 1, spring: 0.5, crossing: 0.4 }, physics: { slick: true } },
   4: { ground: ['m', 'h', 't', 'r', 'w'], air: ['b'], seg: { run: 2, gap: 1.5, hill: 2, steps: 1.5, spikes: 1.5, planks: 3.5, arena: 2, blocks: 1.5, spring: 2, crossing: 0.5 } },
@@ -17,7 +18,7 @@ export const PROFILES = {
   8: { ground: ['w', 'r', 'm', 't', 'k', 'h'], air: ['v'], seg: { run: 1.5, gap: 2, hill: 1.5, steps: 2.5, spikes: 3, planks: 2, arena: 3.5, blocks: 1, spring: 1, crossing: 1.5 } },
 };
 
-const pickWeighted = (rng, table) => {
+export const pickWeighted = (rng, table) => {
   const e = Object.entries(table).filter(([, w]) => w > 0), total = e.reduce((a, [, w]) => a + w, 0);
   let r = rng.next() * total;
   for (const [k, w] of e) { if ((r -= w) <= 0) return k; }

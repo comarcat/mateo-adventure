@@ -19,8 +19,8 @@ export class ModeSelectState {
         sv.newCampaign(); g.change('map', { world: 1, node: 0 });
       },
     });
-    items.push({ label: 'ENDLESS BATTLE', action: () => g.toast('ENDLESS MODE ARRIVES IN STAGE 6') });
-    items.push({ label: 'RECORDS', action: () => g.toast('RECORDS ARRIVE IN STAGE 6') });
+    items.push({ label: 'ENDLESS BATTLE', action: () => g.change('endlessmenu') });
+    items.push({ label: 'RECORDS', action: () => g.push('records', {}) });
     if (g.debug) items.push({ label: 'DEBUG: TEST LEVEL', action: () => { g.run = g.newRun(); g.change('play', { level: 'test' }); } });
     items.push({ label: 'BACK', action: () => g.change('title') });
     this.menu = new Menu(items, { y: 78, gap: 16, onBack: () => g.change('title') });

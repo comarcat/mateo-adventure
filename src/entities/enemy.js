@@ -13,7 +13,7 @@ export class Enemy {
     const d = this.def = ENEMIES[type];
     this.type = type;
     const ws = WORLD_SCALING[Math.max(1, Math.min(8, lv.world))], df = lv.difficulty;
-    this.w = d.w; this.h = d.h; this.x = x; this.y = y; this.vx = 0; this.vy = 0;
+    this.scale = 1; this.w = d.w; this.h = d.h; this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.hp = Math.max(1, Math.round(d.hp * ws.hpMul * df.enemyHp));
     this.speed = d.speed * ws.speedMul * df.enemySpeed;
     this.chargeSpeed = (d.chargeSpeed || 0) * ws.chargeMul * df.enemySpeed;
@@ -23,6 +23,14 @@ export class Enemy {
     this.skin = lv.data.theme; this.frozen = 0;
     this.dir = -1; this.grounded = false; this.dead = false; this.flash = 0; this.t = Math.floor(Math.random() * 60);
     this.state = 'idle'; this.timer = 0; this.baseY = y; this.awake = false;
+  }
+  // Elite (mini-boss): bigger, tougher, worth much more.
+  makeElite(scale = 1.7) {
+    this.scale = scale; this.elite = true;
+    this.x -= (this.def.w * scale - this.w) / 2; this.y -= this.def.h * scale - this.h;
+    this.w = Math.round(this.def.w * scale); this.h = Math.round(this.def.h * scale);
+    this.hp = Math.ceil(this.hp * 3); this.maxHp = this.hp; this.score = this.def.score * 5;
+    return this;
   }
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
@@ -80,7 +88,8 @@ export class Enemy {
     this.x += this.dir * this.speed;
     this.y = this.baseY + Math.sin(this.t * 0.06) * 14;
     const m = lv.map, fx = Math.floor((this.dir > 0 ? this.x + this.w : this.x) / T), fy = Math.floor(this.cy / T);
-    if (m.kind(fx, fy) === K.SOLID || (this.t % 240) === 239) this.dir = -this.dir;
+    if (!this.wave && (m.kind(fx, fy) === K.SOLID || (this.t % 240) === 239)) this.dir = -this.dir;
+    if (this.wave && this.x < lv.camera.x - 90) this.dead = true;
   }
 
   hop(lv, h) {
@@ -153,8 +162,12 @@ export class Enemy {
     if (this.state === 'wind') ox = (this.t % 4 < 2) ? -1 : 1;
     const flash = this.flash > 0 || (this.state === 'wind' && this.t % 6 < 3);
     const face = this.def.ai === 'shoot' ? this.dir : this.dir;
-    drawSprite(ctx, frames[f], this.x - (16 - this.w) / 2 + ox, this.y - (16 - this.h), face, flash);
-    if (this.frozen > 0) { ctx.globalAlpha = 0.8; drawSprite(ctx, iceOverlay(frames[f]), this.x - (16 - this.w) / 2, this.y - (16 - this.h), face, false); ctx.globalAlpha = 1; }
+    if (this.scale !== 1) {
+      const spr = frames[f], dw = 16 * this.scale, img = flash ? (face < 0 ? spr.lw : spr.rw) : (face < 0 ? spr.l : spr.r);
+      ctx.drawImage(img, Math.round(this.x - (dw - this.w) / 2 + ox), Math.round(this.y - (dw - this.h)), Math.round(dw), Math.round(dw));
+      if (this.hp < this.maxHp) { ctx.fillStyle = '#2a1b3d'; ctx.fillRect(Math.round(this.x), Math.round(this.y - dw + this.h - 5), this.w, 3); ctx.fillStyle = '#ff4a3a'; ctx.fillRect(Math.round(this.x) + 1, Math.round(this.y - dw + this.h - 4), Math.max(0, Math.round((this.w - 2) * this.hp / this.maxHp)), 1); }
+    } else drawSprite(ctx, frames[f], this.x - (16 - this.w) / 2 + ox, this.y - (16 - this.h), face, flash);
+    if (this.frozen > 0 && this.scale === 1) { ctx.globalAlpha = 0.8; drawSprite(ctx, iceOverlay(frames[f]), this.x - (16 - this.w) / 2, this.y - (16 - this.h), face, false); ctx.globalAlpha = 1; }
     if (this.state === 'wind') { ctx.fillStyle = '#ff4a4a'; ctx.fillRect(Math.round(this.cx) - 1, Math.round(this.y) - 8, 2, 4); ctx.fillRect(Math.round(this.cx) - 1, Math.round(this.y) - 3, 2, 2); }
   }
 }

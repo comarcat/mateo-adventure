@@ -10,6 +10,11 @@ import { ModeSelectState } from './states/modeselect.js';
 import { OptionsState } from './states/options.js';
 import { MapState } from './states/map.js';
 import { VictoryState } from './states/victory.js';
+import { TextEntryState } from './states/textentry.js';
+import { RecordsState } from './states/records.js';
+import { EndlessMenuState } from './states/endlessmenu.js';
+import { EndlessState } from './states/endless.js';
+import { EndlessResultState } from './states/endlessresult.js';
 
 const canvas = document.getElementById('game');
 const game = new Game(canvas, document.getElementById('screen'));
@@ -23,6 +28,11 @@ game.register('modeselect', ModeSelectState);
 game.register('options', OptionsState);
 game.register('map', MapState);
 game.register('victory', VictoryState);
+game.register('textentry', TextEntryState);
+game.register('records', RecordsState);
+game.register('endlessmenu', EndlessMenuState);
+game.register('endless', EndlessState);
+game.register('endlessresult', EndlessResultState);
 game.change('title');
 window.game = game;      // handy for debugging in the console
 

@@ -12,7 +12,11 @@ export class PauseState {
     const camp = this.below.campaign || (p && p.fromMap);
     const all = [
       { label: 'RESUME', action: () => g.pop() },
-      { label: 'RESTART LEVEL', action: () => { g.pop(); const id = this.below.levelId, camp = this.below.campaign; g.run = camp ? g.campaignRun() : g.newRun(); g.change('play', { level: id, campaign: camp }); } },
+      { label: 'RESTART LEVEL', action: () => {
+        g.pop();
+        if (this.below.endless) { const seed = this.below.seed; g.run = { lives: 3, score: 0, coins: 0, powers: [...g.save.progress.powers], campaign: false, endless: true }; g.change('endless', { seed }); return; }
+        const id = this.below.levelId, camp = this.below.campaign; g.run = camp ? g.campaignRun() : g.newRun(); g.change('play', { level: id, campaign: camp });
+      } },
       { label: 'CONTROLS', action: () => g.push('controls') },
       { label: 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
       { label: 'QUIT TO MAP', action: () => g.change('map', {}) },

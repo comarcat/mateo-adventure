@@ -20,7 +20,7 @@ import { ENEMY_BY_CHAR } from '../data/enemies.js';
 import { PICKUPS, PICKUP_TYPES } from '../data/pickups.js';
 
 const assetCache = {};     // baked per theme, shared across level restarts
-function assetsFor(theme) {
+export function assetsFor(theme) {
   if (!assetCache[theme]) {
     const th = THEMES[theme];
     assetCache[theme] = { th, tiles: bakeTileset(th), bg: makeBackground(th) };
@@ -57,23 +57,28 @@ export class Level {
 
   // Markers in the tile grid become entities and the tile becomes empty:
   //   P start, C checkpoint, G goal, enemy chars (see data/enemies.js), pickup chars (see data/pickups.js)
-  parseMarkers() {
+  parseMarkers() { this.parseRange(0, this.map.w); }
+
+  // Scans columns [c0,c1) for marker characters and turns them into entities (tile becomes empty).
+  parseRange(c0, c1) {
     const m = this.map;
-    for (let r = 0; r < m.h; r++) for (let c = 0; c < m.w; c++) {
+    for (let r = 0; r < m.h; r++) for (let c = c0; c < c1; c++) {
       const ch = m.char(c, r);
       if (ch === '.') continue;
       if (ch === 'P') { this.start = { x: c * T + 3, y: (r + 1) * T - 14 }; m.set(c, r, '.'); }
       else if (ch === 'C') { this.checkpoints.push({ x: c * T, y: (r - 1) * T, w: T, h: 2 * T, on: false, c, r }); m.set(c, r, '.'); }
       else if (ch === 'G') { this.goal = { x: c * T - T / 2, y: (r - 2) * T, w: T * 2, h: 3 * T }; m.set(c, r, '.'); }
-      else if (ch === 'X' && data_boss(this)) { this.boss = new Boss(this.data.boss, c * T + 8, (r + 1) * T, this); m.set(c, r, '.'); }
+      else if (ch === 'X' && this.data.boss) { this.boss = new Boss(this.data.boss, c * T + 8, (r + 1) * T, this); m.set(c, r, '.'); }
       else if (ENEMY_BY_CHAR[ch]) {
         const e = new Enemy(ENEMY_BY_CHAR[ch], 0, 0, this);
         e.x = c * T + (T - e.w) / 2;
-        e.y = e.def.ai === 'fly' ? r * T + 3 : (r + 1) * T - e.h; e.baseY = e.y;
+        e.y = e.def.ai === 'fly' || e.def.ai === 'swoop' ? r * T + 3 : (r + 1) * T - e.h; e.baseY = e.y;
         this.enemies.push(e); m.set(c, r, '.');
       } else if (PICKUPS[ch]) { this.addPickup(PICKUPS[ch].type, c * T + 2, r * T + 2); m.set(c, r, '.'); }
+      else if (ch === 'E' || ch === 'Y') { this.onSpecialMarker(ch, c, r); m.set(c, r, '.'); }
     }
   }
+  onSpecialMarker(ch, c, r) { /* endless mode: E = elite spawn, Y = boss gate */ }
 
   spawnEnemy(type, x, y) {
     const e = new Enemy(type, x, y, this); e.awake = true; e.baseY = y; this.enemies.push(e); return e;
@@ -97,7 +102,7 @@ export class Level {
     this.particles.emit(e.cx, e.cy, 14, { speed: 1.9, g: 0.05, life: 28, size: 3, color: e.def.color });
     this.audio.sfx('enemydie');
     if (e.def.splits && !silent) for (let i = 0; i < e.def.splits; i++) { const m = this.spawnEnemy('blob', e.x + i * 6 - 2, e.y); m.dir = i ? 1 : -1; m.vy = -2.4; m.speed *= 1.3; }
-    if (!silent) this.addScore(e.def.score, e.cx, e.y - 4, true);
+    if (!silent) this.addScore(e.score || e.def.score, e.cx, e.y - 4, true);
   }
 
   onHeadBump(c, r) {
@@ -143,8 +148,7 @@ export class Level {
     for (const p of this.platforms) p.update();
     const hero = this.hero;
     hero.update(this);
-    if (this.data.lockCamera) this.camera.lockAt(Math.max(0, (this.map.pxW - W) / 2), Math.max(0, this.map.pxH - H));
-    else this.camera.follow(hero.dead ? { ...hero, y: Math.min(hero.y, this.map.pxH - 40), facing: 0 } : hero, this.map.pxW, this.map.pxH);
+    this.cameraStep(hero);
     if (this.boss) this.boss.update(this);
 
     for (const e of this.enemies) e.update(this);
@@ -171,6 +175,11 @@ export class Level {
     }
     if (hero.dead && ++this.deadT > 90) this.onDeathDone();
     if (this.status === 'clear') this.clearT++;
+  }
+
+  cameraStep(hero) {
+    if (this.data.lockCamera) this.camera.lockAt(Math.max(0, (this.map.pxW - W) / 2), Math.max(0, this.map.pxH - H));
+    else this.camera.follow(hero.dead ? { ...hero, y: Math.min(hero.y, this.map.pxH - 40), facing: 0 } : hero, this.map.pxW, this.map.pxH);
   }
 
   checkEnemies(h) {
@@ -279,7 +288,7 @@ export class Level {
   draw(ctx) {
     const { tiles, bg } = this.assets;
     const cam = this.camera;
-    bg.draw(ctx, cam.ox, this.frames * 0.2);
+    this.drawBackground(ctx);
     ctx.save();
     ctx.translate(-cam.ox, -cam.oy);
     this.drawTiles(ctx, tiles);
@@ -292,11 +301,15 @@ export class Level {
     if (this.boss) this.boss.draw(ctx);
     this.hero.draw(ctx, this);
     this.projectiles.draw(ctx);
+    this.drawOverlay(ctx);
     this.particles.draw(ctx);
     this.popups.draw(ctx);
     if (this.showBoxes) this.drawBoxes(ctx);
     ctx.restore();
   }
+
+  drawBackground(ctx) { this.assets.bg.draw(ctx, this.camera.ox, this.frames * 0.2); }
+  drawOverlay(ctx) { /* endless: the chasing storm */ }
 
   drawPickups(ctx) {
     const cam = this.camera;
@@ -312,13 +325,16 @@ export class Level {
     }
   }
 
-  drawTiles(ctx, ts) {
+  tilesetAt(c) { return this.assets.tiles; }
+
+  drawTiles(ctx, ts0) {
     const m = this.map, cam = this.camera;
     const c0 = Math.max(0, Math.floor(cam.ox / T)), c1 = Math.min(m.w - 1, Math.floor((cam.ox + W) / T));
     const r0 = Math.max(0, Math.floor(cam.oy / T)), r1 = Math.min(m.h - 1, Math.floor((cam.oy + H) / T));
     for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) {
       const k = m.k[r * m.w + c];
       if (!k) continue;
+      const ts = this.tilesetAt(c);
       let img, dy = 0;
       switch (k) {
         case K.SOLID: {

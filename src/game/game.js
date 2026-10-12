@@ -6,6 +6,7 @@ import { Gfx } from '../engine/gfx.js';
 import { Audio } from '../audio/audio.js';
 import { save } from '../save/save.js';
 import { DIFFICULTY } from '../data/difficulty.js';
+import { LocalScoreBoard } from '../save/scores.js';
 
 export class Game {
   constructor(canvas, container) {
@@ -15,6 +16,8 @@ export class Game {
     this.input = new Input(save.settings.bindings);
     this.audio = new Audio(save.settings, () => save.flush());
     this.debug = DEBUG;
+    this.scores = new LocalScoreBoard(save);        // swap for RemoteScoreBoard to go online
+    this.endlessSeed = null;
     this.registry = {}; this.stack = [];
     this.run = this.newRun();
     this.frame = 0;
@@ -47,7 +50,7 @@ export class Game {
     this.input.poll();
     if (this.input.key('KeyF') && this.top && !this.top.captureKeys) this.gfx.toggleFullscreen();
     if (this.input.pressed('confirm') || this.input.pressed('jump')) this.audio.unlock();   // gamepad presses count as a gesture in most browsers
-    if (this.input.key('KeyM')) this.toast(this.audio.toggleMute() ? 'SOUND MUTED' : 'SOUND ON');
+    if (this.input.key('KeyM') && !(this.top && this.top.captureKeys)) this.toast(this.audio.toggleMute() ? 'SOUND MUTED' : 'SOUND ON');
     if (this.top) this.top.update();
     if (this.toastT > 0 && --this.toastT === 0) this.toastEl.style.display = 'none';
   }
@@ -56,6 +59,17 @@ export class Game {
     while (start > 0 && this.stack[start].transparent) start--;
     for (let i = Math.max(0, start); i < this.stack.length; i++) this.stack[i].draw(this.ctx);
   }
+  // Ask for initials if the score makes the top 10, then store it. cb(rank|0) is called when done.
+  submitScore(mode, entry, cb) {
+    this.scores.qualifies(mode, entry.score).then((ok) => {
+      if (!ok) return cb(0);
+      this.push('textentry', {
+        title: 'NEW HIGH SCORE!', subtitle: String(entry.score).padStart(7, '0'), length: 3, charset: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', initial: this.save.settings.lastName || 'AAA',
+        onDone: (name) => { this.pop(); this.save.settings.lastName = name; this.scores.submit(mode, { ...entry, name }).then((r) => cb(r.rank)); },
+      });
+    });
+  }
+
   // Pause when the tab/window loses focus.
   autoPause() { if (this.top && this.top.pausable) this.push('pause'); }
 

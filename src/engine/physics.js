@@ -14,6 +14,13 @@ export class TileMap {
     this.k = new Uint8Array(this.w * this.h);
     for (let r = 0; r < this.h; r++) for (let c = 0; c < this.w; c++) this.k[r * this.w + c] = CHAR_KIND[this.ch[r][c]] || 0;
   }
+  _rebuild() {
+    this.w = this.ch[0].length; this.k = new Uint8Array(this.w * this.h);
+    for (let r = 0; r < this.h; r++) for (let c = 0; c < this.w; c++) this.k[r * this.w + c] = CHAR_KIND[this.ch[r][c]] || 0;
+  }
+  // endless mode: grow to the right / forget columns on the left (rows = array of h strings, all the same width)
+  appendRows(rows) { for (let r = 0; r < this.h; r++) this.ch[r].push(...rows[r].split('')); this._rebuild(); }
+  dropLeft(n) { for (let r = 0; r < this.h; r++) this.ch[r].splice(0, n); this._rebuild(); }
   set(c, r, ch) { this.ch[r][c] = ch; this.k[r * this.w + c] = CHAR_KIND[ch] || 0; }
   char(c, r) { return (c < 0 || c >= this.w || r < 0 || r >= this.h) ? '.' : this.ch[r][c]; }
   // Level edges: left/right are walls, top is open, bottom is a pit.

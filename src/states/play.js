@@ -17,8 +17,10 @@ export class PlayState {
     lv.update();
     if (lv.status === 'clear' && lv.clearT > 150) this.finish(lv);
     else if (lv.status === 'gameover') {
+      const sc0 = g.run.score;
       if (this.campaign) { const p = g.save.progress; p.lives = 3; p.score = 0; g.save.flush(); }
-      g.change('gameover', { level: this.levelId, campaign: this.campaign });
+      const sc = sc0;
+      g.change('gameover', { level: this.levelId, campaign: this.campaign, score: sc, world: lv.world, time: g.campaignTime() + lv.frames / 60 });
     }
   }
   finish(lv) {

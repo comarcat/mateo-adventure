@@ -3,6 +3,7 @@
 import { LevelBuilder } from './builder.js';
 import { levelInfo, WORLDS } from '../data/worlds.js';
 import { POWER_BY_WORLD } from '../data/powers.js';
+import { WORLD1 } from './world1.js';
 
 const meta = (id, extra = {}) => {
   const i = levelInfo(id), w = WORLDS[i.world];
@@ -11,6 +12,7 @@ const meta = (id, extra = {}) => {
 const base = () => { const b = new LevelBuilder(16, 14); b.ground(0, 15, 11); b.set(2, 10, 'P'); return b; };
 
 const ARENAS = {
+  1() { return WORLD1['1-4'](); },
   // 2: sand worm - burrowing; plenty of floor, a few planks to dodge the eruption
   2() { const b = base(); b.set(3, 10, 'g'); b.set(13, 10, 'X'); b.plank(1, 7, 3); b.plank(12, 7, 3); b.set(2, 6, 's'); b.set(13, 6, 'a'); b.set(7, 10, 'l'); return b.build(meta('2-4')); },
   // 3: mr. frost - icy floor, a couple of platforms to dodge icicles
