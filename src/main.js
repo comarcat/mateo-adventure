@@ -1,0 +1,37 @@
+import { STEP_MS } from './config.js';
+import { Game } from './game/game.js';
+import { TitleState } from './states/title.js';
+import { ControlsState } from './states/controls.js';
+import { PlayState } from './states/play.js';
+import { PauseState } from './states/pause.js';
+import { CompleteState } from './states/complete.js';
+import { GameOverState } from './states/gameover.js';
+
+const canvas = document.getElementById('game');
+const game = new Game(canvas, document.getElementById('screen'));
+game.register('title', TitleState);
+game.register('controls', ControlsState);
+game.register('play', PlayState);
+game.register('pause', PauseState);
+game.register('complete', CompleteState);
+game.register('gameover', GameOverState);
+game.change('title');
+window.game = game;      // handy for debugging in the console
+
+document.getElementById('fs').addEventListener('click', (e) => { game.gfx.toggleFullscreen(); e.target.blur(); });
+
+// Fixed 60 Hz timestep with an accumulator; rendering runs at display rate.
+let last = performance.now(), acc = 0;
+function frame(now) {
+  acc += Math.min(now - last, 100); last = now;
+  let steps = 0;
+  while (acc >= STEP_MS && steps < 5) { game.update(); acc -= STEP_MS; steps++; }
+  if (steps === 5) acc = 0;
+  game.draw();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Pause automatically when the tab/window loses focus.
+addEventListener('blur', () => game.autoPause());
+document.addEventListener('visibilitychange', () => { if (document.hidden) game.autoPause(); last = performance.now(); acc = 0; });
