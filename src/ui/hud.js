@@ -2,6 +2,7 @@ import { W } from '../config.js';
 import { drawText } from '../engine/font.js';
 import { ICON, drawSprite } from '../gfx/sprites.js';
 import { ITEM_ART, COIN_ICON } from '../gfx/art.js';
+import { drawBossBar } from '../entities/boss.js';
 
 const SH = '#2a1b3d';
 const label = (ctx, t, x, y, c = '#fff', o = {}) => drawText(ctx, t, x, y, c, 1, { shadow: SH, ...o });
@@ -38,6 +39,7 @@ export function drawHUD(ctx, lv) {
   }
   if (lv.combo > 1) label(ctx, 'COMBO X' + Math.min(lv.combo, 8), W / 2, 5, lv.frames % 8 < 4 ? '#ffd84a' : '#ff7a3a', { align: 'center' });
 
+  if (lv.boss && lv.boss.active && !lv.boss.dead) drawBossBar(ctx, lv.boss);
   // level intro banner
   if (lv.frames < 150 && lv.status === 'play') {
     ctx.globalAlpha = lv.frames > 110 ? (150 - lv.frames) / 40 : 1;

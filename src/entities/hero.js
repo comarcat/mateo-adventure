@@ -11,7 +11,8 @@ const GRAV = 0.23, GRAV_CUT = 0.55, MAX_FALL = 4.8, JUMP_V = 4.7;
 const COYOTE = 6, BUFFER = 6;
 
 export class Hero {
-  constructor(x, y, maxHp = 6) {
+  constructor(x, y, maxHp = 6, powers = []) {
+    this.powers = new Set(powers); this.airJumps = 1;
     this.w = 10; this.h = 14;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.facing = 1; this.grounded = false; this.onSlope = false; this.onOneWay = false; this.wall = 0; this.dropT = 0;
@@ -117,6 +118,7 @@ export class Hero {
     const jumpHeld = ctl && inp.down('jump');
     if (ctl && inp.pressed('jump')) this.jumpBuf = BUFFER; else if (this.jumpBuf > 0) this.jumpBuf--;
     if (this.grounded) this.coyote = COYOTE; else if (this.coyote > 0) this.coyote--;
+    if (this.grounded || this.riding) this.airJumps = 1;
 
     if (ctl && inp.down('down') && inp.pressed('jump') && this.onOneWay) {      // drop through thin platforms
       this.dropT = 10; this.y += 1; this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
@@ -125,6 +127,10 @@ export class Hero {
       this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
       lv.particles.dust(this.cx, this.y + this.h);
       lv.audio.sfx('jump');
+    } else if (ctl && inp.pressed('jump') && !this.grounded && this.coyote <= 0 && this.airJumps > 0 && this.powers.has('doublejump')) {
+      this.airJumps--; this.vy = -4.1; this.jumpBuf = 0; this.noCut = false;       // boss power: DOUBLE JUMP
+      lv.particles.emit(this.cx, this.y + this.h, 8, { angle: Math.PI / 2, spread: 2.6, speed: 1.2, color: ['#fff', '#b06aff'], life: 16 });
+      lv.audio.sfx('jump2');
     }
     if (this.vy >= 0) this.noCut = false;
     const g = (this.vy < 0 && !jumpHeld && !this.noCut) ? GRAV_CUT : GRAV;

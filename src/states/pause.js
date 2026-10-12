@@ -4,16 +4,24 @@ import { Menu } from '../ui/menu.js';
 
 export class PauseState {
   constructor(game) { this.game = game; this.transparent = true; }
-  enter() {
+  enter(p) {
     const g = this.game;
     this.below = g.stack[g.stack.length - 1];
-    this.menu = new Menu([
+    const camp = this.below.campaign || (p && p.fromMap);
+    const all = [
       { label: 'RESUME', action: () => g.pop() },
-      { label: 'RESTART LEVEL', action: () => { g.pop(); const id = this.below.levelId; g.run = g.newRun(); g.change('play', { level: id }); } },
+      { label: 'RESTART LEVEL', action: () => { g.pop(); const id = this.below.levelId, camp = this.below.campaign; g.run = camp ? g.campaignRun() : g.newRun(); g.change('play', { level: id, campaign: camp }); } },
       { label: 'CONTROLS', action: () => g.push('controls') },
       { label: 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
+      { label: 'QUIT TO MAP', action: () => g.change('map', {}) },
       { label: 'QUIT TO TITLE', action: () => g.change('title') },
-    ], { y: 84, gap: 15, onBack: () => g.pop() });
+    ];
+    const items = all.filter((it) => {
+      if (p && p.fromMap) return ['RESUME', 'CONTROLS', 'FULLSCREEN', 'QUIT TO TITLE'].includes(it.label);
+      if (it.label === 'QUIT TO MAP') return !!this.below.campaign;
+      return true;
+    });
+    this.menu = new Menu(items, { y: 78, gap: 14, onBack: () => g.pop() });
   }
   update() {
     if (this.game.input.pressed('pause')) { this.game.pop(); return; }

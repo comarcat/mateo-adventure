@@ -5,20 +5,30 @@ import { drawHUD } from '../ui/hud.js';
 export class PlayState {
   constructor(game) { this.game = game; this.pausable = true; }
   enter(p) {
-    this.levelId = p.level;
+    this.levelId = p.level; this.campaign = !!p.campaign;
     this.level = new Level(this.game, getLevel(this.levelId), this.game.run);
-    this.game.audio.music && this.game.audio.music('level');
+    this.game.audio.music(this.level.data.music || 'world-grass');
   }
   update() {
     const g = this.game, lv = this.level, inp = g.input;
     if (inp.pressed('pause')) { g.push('pause'); return; }
     if (g.debug) this.debugKeys(inp, lv);
     lv.update();
-    if (lv.status === 'clear' && lv.clearT > 150) {
-      const b = lv.bonuses(); g.run.score += b.total;
-      g.change('complete', { level: this.levelId, bonus: b, score: g.run.score, kills: lv.kills, coins: g.run.coins });
+    if (lv.status === 'clear' && lv.clearT > 150) this.finish(lv);
+    else if (lv.status === 'gameover') {
+      if (this.campaign) { const p = g.save.progress; p.lives = 3; p.score = 0; g.save.flush(); }
+      g.change('gameover', { level: this.levelId, campaign: this.campaign });
     }
-    else if (lv.status === 'gameover') g.change('gameover', { level: this.levelId });
+  }
+  finish(lv) {
+    const g = this.game, b = lv.bonuses();
+    g.run.score += b.total;
+    const p = { level: this.levelId, bonus: b, score: g.run.score, kills: lv.kills, coins: g.run.coins, campaign: this.campaign, newPower: lv.newPower, boss: !!lv.data.boss };
+    if (this.campaign) {
+      g.save.markCleared(this.levelId, lv.levelScore + b.total, b.secs);
+      g.persistRun();
+    }
+    g.change('complete', p);
   }
   debugKeys(inp, lv) {
     if (inp.key('KeyI')) { lv.cheatInvincible = !lv.cheatInvincible; this.game.toast('INVINCIBLE ' + (lv.cheatInvincible ? 'ON' : 'OFF')); }

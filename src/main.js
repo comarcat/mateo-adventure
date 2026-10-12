@@ -6,6 +6,9 @@ import { PlayState } from './states/play.js';
 import { PauseState } from './states/pause.js';
 import { CompleteState } from './states/complete.js';
 import { GameOverState } from './states/gameover.js';
+import { ModeSelectState } from './states/modeselect.js';
+import { OptionsState } from './states/options.js';
+import { MapState } from './states/map.js';
 
 const canvas = document.getElementById('game');
 const game = new Game(canvas, document.getElementById('screen'));
@@ -15,6 +18,9 @@ game.register('play', PlayState);
 game.register('pause', PauseState);
 game.register('complete', CompleteState);
 game.register('gameover', GameOverState);
+game.register('modeselect', ModeSelectState);
+game.register('options', OptionsState);
+game.register('map', MapState);
 game.change('title');
 window.game = game;      // handy for debugging in the console
 

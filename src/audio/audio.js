@@ -3,6 +3,6 @@ export class Audio {
   constructor() { this.enabled = false; }
   unlock() {}
   sfx(name) {}
-  music(name) {}
+  music(name, loop = true) {}
   stopMusic() {}
 }

@@ -15,6 +15,7 @@ export class Camera {
     this._clamp(mapPxW, mapPxH);
     this._apply();
   }
+  lockAt(x, y) { this.x = x; this.y = y; this._apply(); }
   _clamp(mw, mh) {
     this.x = Math.max(0, Math.min(this.x, Math.max(0, mw - W)));
     this.y = Math.max(0, Math.min(this.y, Math.max(0, mh - H)));

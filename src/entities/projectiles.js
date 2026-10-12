@@ -15,6 +15,8 @@ export class Projectiles {
   }
   fireGun(x, y, dir) { this._fire('gun', 'hero', dir > 0 ? x : x - 4, y, dir * 4.2, 0, 4, 3, GUN_DMG, false, 60); }
   fireLaser(x, y, dir) { this._fire('laser', 'hero', dir > 0 ? x : x - 24, y - 1, dir * 6.5, 0, 24, 3, LASER_DMG, true, 50); }
+  // ground shockwave: stays on the floor line, hero must jump over it
+  fireWave(x, y, vx) { this._fire('wave', 'enemy', x - 5, y, vx, 0, 10, 8, 1, false, 140); }
   fireEnemy(x, y, vx, vy) { this._fire('seed', 'enemy', x - 2, y - 2, vx, vy, 5, 5, 1, false, 200); }
 
   update(lv) {
@@ -23,12 +25,15 @@ export class Projectiles {
       p.x += p.vx; p.y += p.vy;
       if (--p.life <= 0) { p.active = false; return; }
       const c = Math.floor((p.x + p.w / 2) / T), r = Math.floor((p.y + p.h / 2) / T);
-      if (m.kind(c, r) === K.SOLID) {
+      if (p.kind !== 'wave' && m.kind(c, r) === K.SOLID || (p.kind === 'wave' && m.kind(c, Math.floor(p.y / T)) === K.SOLID)) {
         p.active = false;
         lv.particles.emit(p.x + p.w / 2, p.y + p.h / 2, 3, { speed: 0.8, color: [p.kind === 'laser' ? '#7af0ff' : '#ffd84a'], life: 10, size: 2 });
         return;
       }
       if (p.from === 'hero') {
+        if (lv.boss && !lv.boss.dead && overlap(p, lv.boss) && !p.hits.includes(lv.boss)) {
+          p.hits.push(lv.boss); lv.boss.hit(p.dmg, lv); if (!p.pierce) { p.active = false; return; }
+        }
         for (const e of lv.enemies) {
           if (e.dead || !overlap(p, e) || p.hits.includes(e)) continue;
           p.hits.push(e);
@@ -49,6 +54,9 @@ export class Projectiles {
       else if (p.kind === 'laser') {
         ctx.fillStyle = 'rgba(122,240,255,0.35)'; ctx.fillRect(x - 2, y - 2, p.w + 4, 7);
         ctx.fillStyle = '#7af0ff'; ctx.fillRect(x, y, p.w, 3); ctx.fillStyle = '#fff'; ctx.fillRect(x, y + 1, p.w, 1);
+      } else if (p.kind === 'wave') {
+        const f = Math.floor(p.life / 4) % 2;
+        ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y - 1 - f, 12, 10 + f); ctx.fillStyle = '#7be07a'; ctx.fillRect(x, y - f, 10, 8 + f); ctx.fillStyle = '#d8ffc8'; ctx.fillRect(x + 2, y + 1 - f, 4, 2);
       } else { ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y, 7, 5); ctx.fillRect(x, y - 1, 5, 7); ctx.fillStyle = '#ff7a3a'; ctx.fillRect(x, y, 5, 5); ctx.fillStyle = '#ffe08a'; ctx.fillRect(x + 1, y + 1, 2, 2); }
     });
   }

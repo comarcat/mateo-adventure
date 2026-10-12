@@ -162,3 +162,41 @@ export function bakeBlocks() {
   };
   return { q: mkBlock(false), used: mkBlock(true) };
 }
+
+// ------------------------------------------------------------------ bosses
+// Slime King: 40x32 jelly with a gold crown. frames: 0 idle, 1 squash, 2 stretch. `rage` = angry red recolour.
+function slimeKingFrames(rage) {
+  const body = rage ? '#e05a4a' : '#5fd35a', hi = rage ? '#ff9a8a' : '#a8f08a', lo = rage ? '#a02a2a' : '#2f9a3a';
+  return [[15, 15.5], [11, 17.5], [19, 13.5]].map(([ry, rx], f) => {
+    const [c, g] = mk(40, 32);
+    const squash = f === 1, stretch = f === 2;
+    const rY = squash ? 10 : stretch ? 16 : 13, rX = squash ? 19 : stretch ? 14 : 17;
+    const cy = 32 - rY + 1;
+    blob(g, 20, cy, rX, rY, body);
+    R(g, hi, 20 - rX + 4, cy - rY + 4, 6, 2); R(g, hi, 20 - rX + 4, cy - rY + 6, 2, 3);
+    R(g, lo, 20 - rX + 3, 30, rX * 2 - 4, 1);
+    // eyes
+    const ey = cy - 4;
+    R(g, '#fff', 11, ey, 7, 7); R(g, '#fff', 22, ey, 7, 7);
+    R(g, OUT, 14, ey + 2, 3, 4); R(g, OUT, 25, ey + 2, 3, 4);
+    R(g, OUT, 10, ey - 2 + (rage ? 2 : 0), 8, 2); R(g, OUT, 22, ey - 2 + (rage ? 2 : 0), 8, 2);
+    // mouth
+    R(g, OUT, 14, ey + 10, 12, squash ? 4 : 3); R(g, '#7a1020', 15, ey + 11, 10, squash ? 2 : 1);
+    if (squash || rage) { R(g, '#fff', 16, ey + 10, 2, 1); R(g, '#fff', 22, ey + 10, 2, 1); }
+    // crown
+    const cyc = cy - rY - 3;
+    R(g, OUT, 11, cyc + 2, 18, 6); R(g, '#ffd84a', 12, cyc + 3, 16, 4); R(g, '#fff2a0', 12, cyc + 3, 16, 1);
+    for (const x of [11, 19, 27]) { R(g, OUT, x, cyc - 2, 3, 5); R(g, '#ffd84a', x + 1, cyc - 1, 1, 4); }
+    R(g, '#e0453a', 19, cyc + 4, 2, 2);
+    return fromCanvas(c);
+  });
+}
+export const BOSS_ART = { slimeking: slimeKingFrames(false), slimeking_rage: slimeKingFrames(true) };
+
+// glowing power orb dropped by a defeated boss (14x14)
+export const POWER_ORB = item((g) => {
+  ell(g, 7, 7, 7, 7, OUT); ell(g, 7, 7, 6, 6, '#b06aff'); ell(g, 7, 7, 4, 4, '#e0b8ff'); R(g, '#fff', 4, 3, 3, 2);
+  R(g, '#fff', 8, 8, 2, 2);
+});
+
+ITEM_ART.power = POWER_ORB;

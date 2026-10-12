@@ -3,7 +3,7 @@
 A 90s-style 2D platformer (Mario-style stomping, Sonic-style rush, Mega Man-style boss powers) built with
 HTML5 Canvas + vanilla JavaScript ES modules. No build step, no dependencies, no external assets.
 
-**Status: Stage 2 of 7 (enemies, power-ups, coins, scoring, HUD).** See `docs/STAGES.md` for the roadmap.
+**Status: Stage 3 of 7 (classic campaign: overworld map, world 1, boss, save).** See `docs/STAGES.md` for the roadmap.
 
 ## Run it
 
@@ -48,3 +48,11 @@ src/audio    placeholder (Stage 4)
 - **Enemy:** add a row to `src/data/enemies.js` (stats, tile char), art in `src/gfx/art.js` (`ENEMY_ART`), and a behaviour case in `src/entities/enemy.js` if it needs new AI. Per-world scaling lives in `src/data/difficulty.js` (`WORLD_SCALING`).
 - **Pickup:** `src/data/pickups.js` (tile char), art in `art.js` (`ITEM_ART`), effect in `Level.collect`.
 - **In a level:** put the tile char in the map (`e` blob, `k` spiky, `b` bat, `t` pod, `r` charger; `o` coin, `*` star, `1` extra life, `s` shield, `g` gun, `l` laser, `a` apple, `z` pizza, `?` block with `blocks` data).
+
+## Levels (Stage 3)
+
+Levels are plain data (`{tiles:[strings], platforms, texts, blocks, boss, power, ...}`) built with `LevelBuilder` + `Cursor` in `src/levels/builder.js`.
+`Cursor` refuses unfair pieces (pits wider than a plain jump, ledges taller than 2 tiles). Campaign levels are registered in
+`src/levels/index.js` as `"<world>-<n>"` (n=4 is the boss). Names/par times/themes are in `src/data/worlds.js`.
+
+Check every level before committing: `node tools/validate.mjs` (start/goal present, jumpable pits, no hazards or enemies at pit edges).

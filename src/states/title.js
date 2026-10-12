@@ -5,7 +5,6 @@ import { makeBackground } from '../gfx/backgrounds.js';
 import { THEMES } from '../gfx/themes.js';
 import { MATEO, drawSprite } from '../gfx/sprites.js';
 import { bakeTileset } from '../gfx/tiles.js';
-import { DIFFICULTY, DIFFICULTY_ORDER } from '../data/difficulty.js';
 
 let bg, ts;
 export class TitleState {
@@ -14,17 +13,13 @@ export class TitleState {
     bg = bg || makeBackground(THEMES.grass); ts = ts || bakeTileset(THEMES.grass);
     this.t = 0;
     const g = this.game;
-    const cycle = (d) => {
-      const i = DIFFICULTY_ORDER.indexOf(g.save.settings.difficulty);
-      g.save.settings.difficulty = DIFFICULTY_ORDER[(i + d + 3) % 3]; g.save.flush();
-    };
     const items = [
-      { label: 'START TEST LEVEL', action: () => { g.run = g.newRun(); g.change('play', { level: 'test' }); } },
-      { label: () => '< ' + g.difficulty.label + ' >', action: () => cycle(1), onLeft: () => cycle(-1), onRight: () => cycle(1) },
+      { label: 'START', action: () => g.change('modeselect') },
+      { label: 'OPTIONS', action: () => g.push('options') },
       { label: 'CONTROLS', action: () => g.push('controls') },
-      { label: () => 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
+      { label: 'FULLSCREEN', action: () => g.gfx.toggleFullscreen() },
     ];
-    this.menu = new Menu(items, { y: 126, gap: 14 });
+    this.menu = new Menu(items, { y: 122, gap: 14 });
   }
   update() { this.t++; this.menu.update(this.game); }
   draw(ctx) {
@@ -36,7 +31,7 @@ export class TitleState {
     const f = Math.floor(this.t / 8) % 4;
     drawSprite(ctx, MATEO.run[f], ((this.t * 1.2) % (W + 40)) - 20, H - 48, 1);
     this.menu.draw(ctx, this.t);
-    drawText(ctx, 'STAGE 2 - ENEMIES + ITEMS', W / 2, 100, '#fff', 1, { align: 'center', shadow: '#2a1b3d' });
+    drawText(ctx, 'CLASSIC CAMPAIGN - WORLD 1', W / 2, 100, '#fff', 1, { align: 'center', shadow: '#2a1b3d' });
     drawText(ctx, 'ARROWS + ENTER / GAMEPAD', W / 2, 212, '#2a1b3d', 1, { align: 'center' });
   }
 }

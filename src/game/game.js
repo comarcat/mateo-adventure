@@ -22,7 +22,13 @@ export class Game {
     this.input.onToast = (m) => this.toast(m);
   }
   get difficulty() { return DIFFICULTY[this.save.settings.difficulty] || DIFFICULTY.normal; }
-  newRun() { return { lives: 3, score: 0, coins: 0 }; }
+  newRun() { return { lives: 3, score: 0, coins: 0, powers: [], campaign: false }; }
+  // Campaign run state mirrors the saved progress; persistRun() writes it back.
+  campaignRun() { const p = this.save.progress; return { lives: p.lives, score: p.score, coins: p.coins, powers: [...p.powers], campaign: true }; }
+  persistRun() {
+    const p = this.save.progress, r = this.run;
+    p.lives = r.lives; p.score = r.score; p.coins = r.coins; p.powers = [...new Set(r.powers)]; this.save.flush();
+  }
 
   register(name, State) { this.registry[name] = State; }
   get top() { return this.stack[this.stack.length - 1]; }

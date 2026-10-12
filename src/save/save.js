@@ -7,7 +7,7 @@ const VERSION = 1;
 const defaults = () => ({
   version: VERSION,
   settings: { master: 0.8, music: 0.7, sfx: 0.8, muted: false, difficulty: 'normal', bindings: null },
-  progress: { lives: 3, cleared: {}, powers: [], world: 1 },
+  progress: { started: false, lives: 3, score: 0, coins: 0, cleared: {}, powers: [], world: 1, node: 0 },
   scores: { classic: [], endless: [] },
 });
 
@@ -35,6 +35,14 @@ class SaveStore {
   get settings() { return this.data.settings; }
   get progress() { return this.data.progress; }
   get scores() { return this.data.scores; }
+  // ---- campaign helpers
+  newCampaign() { this.data.progress = defaults().progress; this.data.progress.started = true; this.flush(); }
+  get hasCampaign() { return !!this.data.progress.started; }
+  isCleared(id) { return !!this.data.progress.cleared[id]; }
+  markCleared(id, score, secs) {
+    const c = this.data.progress.cleared, prev = c[id];
+    c[id] = { score: Math.max(score, prev ? prev.score : 0), time: Math.min(secs, prev ? prev.time : 1e9) };
+  }
   reset() { this.data = defaults(); this.flush(); }
 }
 export const save = new SaveStore();

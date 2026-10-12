@@ -7,6 +7,7 @@ import { Particles } from '../entities/particles.js';
 import { Platform } from '../entities/platform.js';
 import { Hero } from '../entities/hero.js';
 import { Enemy } from '../entities/enemy.js';
+import { Boss, drawBossBar } from '../entities/boss.js';
 import { Projectiles } from '../entities/projectiles.js';
 import { Popups } from '../entities/popups.js';
 import { THEMES } from '../gfx/themes.js';
@@ -28,6 +29,7 @@ function assetsFor(theme) {
 }
 
 const COMBO_FRAMES = 150;
+const data_boss = (lv) => !!lv.data.boss;
 
 export class Level {
   constructor(game, data, run) {
@@ -43,12 +45,12 @@ export class Level {
     this.platforms = (data.platforms || []).map((p) => new Platform(p));
     this.texts = data.texts || [];
     this.checkpoints = []; this.goal = null; this.start = { x: 32, y: 32 };
-    this.enemies = []; this.pickups = []; this.bumps = new Map(); this.springT = new Map();
+    this.enemies = []; this.pickups = []; this.boss = null; this.newPower = null; this.bumps = new Map(); this.springT = new Map();
     this.frames = 0; this.status = 'play'; this.clearT = 0; this.deadT = 0;
     this.combo = 0; this.comboT = 0; this.damageTaken = 0; this.levelScore = 0; this.kills = 0;
     this.cheatInvincible = false; this.cheatInfiniteRush = false; this.showBoxes = false;
     this.parseMarkers();
-    this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp);
+    this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp, run.powers || []);
     this.respawnAt = { ...this.start };
     this.camera.snap(this.hero, this.map.pxW, this.map.pxH);
   }
@@ -63,6 +65,7 @@ export class Level {
       if (ch === 'P') { this.start = { x: c * T + 3, y: (r + 1) * T - 14 }; m.set(c, r, '.'); }
       else if (ch === 'C') { this.checkpoints.push({ x: c * T, y: (r - 1) * T, w: T, h: 2 * T, on: false, c, r }); m.set(c, r, '.'); }
       else if (ch === 'G') { this.goal = { x: c * T - T / 2, y: (r - 2) * T, w: T * 2, h: 3 * T }; m.set(c, r, '.'); }
+      else if (ch === 'X' && data_boss(this)) { this.boss = new Boss(this.data.boss, c * T + 8, (r + 1) * T, this); m.set(c, r, '.'); }
       else if (ENEMY_BY_CHAR[ch]) {
         const e = new Enemy(ENEMY_BY_CHAR[ch], 0, 0, this);
         e.x = c * T + (T - e.w) / 2;
@@ -71,6 +74,11 @@ export class Level {
       } else if (PICKUPS[ch]) { this.addPickup(PICKUPS[ch].type, c * T + 2, r * T + 2); m.set(c, r, '.'); }
     }
   }
+
+  spawnEnemy(type, x, y) {
+    const e = new Enemy(type, x, y, this); e.awake = true; e.baseY = y; this.enemies.push(e); return e;
+  }
+  spawnPowerOrb(x, y) { this.addPickup('power', x, y); this.audio.sfx('powerup'); this.particles.emit(x + 7, y + 7, 16, { speed: 2, color: ['#e0b8ff', '#fff'], life: 30 }); }
 
   addPickup(type, x, y) { this.pickups.push({ type, x, y, w: 12, h: 12, t: Math.floor(Math.random() * 60), done: false }); }
 
@@ -83,12 +91,12 @@ export class Level {
     this.popups.add(x, y, useCombo && this.combo > 1 ? pts + ' X' + Math.min(this.combo, 8) : pts, useCombo && this.combo > 1 ? '#ffd84a' : '#fff');
   }
 
-  killEnemy(e) {
+  killEnemy(e, silent = false) {
     if (e.dead) return;
     e.dead = true; this.kills++;
     this.particles.emit(e.cx, e.cy, 14, { speed: 1.9, g: 0.05, life: 28, size: 3, color: e.def.color });
     this.audio.sfx('enemydie');
-    this.addScore(e.def.score, e.cx, e.y - 4, true);
+    if (!silent) this.addScore(e.def.score, e.cx, e.y - 4, true);
   }
 
   onHeadBump(c, r) {
@@ -120,6 +128,7 @@ export class Level {
       case 'shield': h.shield = 8; this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
       case 'gun': h.ammo = Math.min(99, h.ammo + 20); h.weapon = 'gun'; this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
       case 'laser': h.charges = Math.min(20, h.charges + 5); h.weapon = 'laser'; this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'power': { const id = this.data.power; h.powers.add(id); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
       case 'apple': h.hp = Math.min(h.maxHp, h.hp + 2); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+2 HP', '#ff7a7a'); break;
       case 'pizza': h.hp = Math.min(h.maxHp, h.hp + 4); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+4 HP', '#ff7a7a'); break;
     }
@@ -133,7 +142,9 @@ export class Level {
     for (const p of this.platforms) p.update();
     const hero = this.hero;
     hero.update(this);
-    this.camera.follow(hero.dead ? { ...hero, y: Math.min(hero.y, this.map.pxH - 40), facing: 0 } : hero, this.map.pxW, this.map.pxH);
+    if (this.data.lockCamera) this.camera.lockAt(Math.max(0, (this.map.pxW - W) / 2), Math.max(0, this.map.pxH - H));
+    else this.camera.follow(hero.dead ? { ...hero, y: Math.min(hero.y, this.map.pxH - 40), facing: 0 } : hero, this.map.pxW, this.map.pxH);
+    if (this.boss) this.boss.update(this);
 
     for (const e of this.enemies) e.update(this);
     this.projectiles.update(this);
@@ -147,6 +158,7 @@ export class Level {
       this.checkHazards(hero);
       this.checkCheckpoints(hero);
       this.checkEnemies(hero);
+      if (this.boss && !this.boss.dead && this.boss.active) this.checkBoss(hero);
       this.checkPickups(hero);
       if (this.goal && this.status === 'play' && overlap(hero, this.goal)) this.clearLevel();
       if (hero.y > this.map.pxH + 24) hero.die(this);        // fell into a pit
@@ -173,13 +185,25 @@ export class Level {
         this.camera.shake(2, 6);
       } else if (stomping && e.def.stomp) {
         e.hit(1, this);
-        h.vy = this.input.down('jump') ? -5.2 : -3.6; h.noCut = true; h.grounded = false;
+        h.vy = this.input.down('jump') ? -5.2 : -3.6; h.noCut = true; h.grounded = false; h.airJumps = 1;
         h.invuln = Math.max(h.invuln, 6);
         this.particles.emit(h.cx, h.y + h.h, 5, { angle: -Math.PI / 2, spread: 2.2, speed: 1.3, color: ['#fff'], life: 12 });
       } else {
         h.hurt(1, e.cx, this);
       }
     }
+  }
+
+  checkBoss(h) {
+    const b = this.boss;
+    if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, b)) return;
+    const stomping = h.vy > 0.3 && (h.y + h.h) - b.y <= 12 && !h.rushing;
+    if (stomping) {
+      b.hit(1, this);
+      h.vy = this.input.down('jump') ? -5.4 : -4; h.noCut = true; h.grounded = false; h.airJumps = 1; h.invuln = Math.max(h.invuln, 8);
+    } else if (h.rushing) {
+      b.hit(2, this); h.rushing = false; h.rushCd = 30; h.vx = -h.facing * 2.2; h.vy = -2.4;
+    } else h.hurt(1, b.cx, this);
   }
 
   checkPickups(h) {
@@ -222,7 +246,8 @@ export class Level {
   clearLevel() {
     this.status = 'clear'; this.clearT = 0;
     this.audio.sfx('clear');
-    this.particles.emit(this.goal.x + 16, this.goal.y + 8, 20, { speed: 2, color: ['#ffd84a', '#fff', '#37d46a'], life: 40 });
+    const gx = this.goal ? this.goal.x + 16 : this.hero.cx, gy = this.goal ? this.goal.y + 8 : this.hero.y;
+    this.particles.emit(gx, gy, 20, { speed: 2, color: ['#ffd84a', '#fff', '#37d46a'], life: 40 });
   }
 
   onDeathDone() {
@@ -257,6 +282,7 @@ export class Level {
     for (const p of this.platforms) p.draw(ctx, tiles.platform);
     this.drawPickups(ctx);
     for (const e of this.enemies) if (!e.dead && e.x > cam.ox - 20 && e.x < cam.ox + W + 20) e.draw(ctx);
+    if (this.boss) this.boss.draw(ctx);
     this.hero.draw(ctx, this);
     this.projectiles.draw(ctx);
     this.particles.draw(ctx);
