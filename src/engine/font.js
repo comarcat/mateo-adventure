@@ -39,7 +39,9 @@ export function drawText(ctx, str, x, y, color = '#fff', scale = 1, opts = {}) {
   if (opts.align === 'center') x -= Math.floor(textWidth(str, scale) / 2);
   else if (opts.align === 'right') x -= textWidth(str, scale);
   x = Math.round(x); y = Math.round(y);
-  if (opts.shadow) paint(ctx, str, x + scale, y + scale, opts.shadow, scale);
+  if (opts.outline !== false && color !== '#1a1030') {            // 16-bit style: dark outline keeps text readable on any backdrop
+    for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) paint(ctx, str, x + dx * scale, y + dy * scale, '#1a1030', scale);
+  } else if (opts.shadow) paint(ctx, str, x + scale, y + scale, opts.shadow, scale);
   paint(ctx, str, x, y, color, scale);
 }
 

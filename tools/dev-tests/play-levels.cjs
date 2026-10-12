@@ -8,7 +8,7 @@ const ids = process.argv.slice(3);
   const errs = []; p.on('pageerror', e => errs.push('PAGEERR ' + e.message));
   await p.goto((process.env.BASE || 'http://localhost:8123') + '/index.html?debug'); await p.waitForTimeout(400);
   for (const id of ids) {
-    const r = await p.evaluate((id) => {
+    const r = await p.evaluate(({ id, TRACE }) => {
       window.dd = []; game.run = game.campaignRun(); game.change('play', { level: id, campaign: true });
       const L = game.top.level; L.cheatInvincible = true;
       let f = 0, stuckX = 0, stuckT = 0, deaths = 0, lastLives = L.run.lives;
@@ -42,6 +42,7 @@ const ids = process.argv.slice(3);
         const lv = game.top.level; if (!lv) { status = game.top.name; break; }
         if (lv.status !== 'play') { status = lv.status; break; }
         const h = lv.hero; 
+        if (TRACE) { const [tid, ta, tb] = TRACE.split(':'); if (tid === id && h.x > ta * 16 && h.x < tb * 16 && f % 3 === 0 && (window.tr = window.tr || []).length < 200) window.tr.push(f + ' x' + h.x.toFixed(0) + ' y' + h.y.toFixed(0) + (h.grounded ? ' G' : '') + (h.riding ? ' R' : '') + ' vy' + h.vy.toFixed(1) + (h.dead ? ' DEAD' : '')); }
         if (Math.abs(h.x - stuckX) < 1) stuckT++; else { stuckT = 0; stuckX = h.x; }
         if (stuckT > 900) { status = 'STUCK at col ' + Math.round(h.x / 16) + ' row ' + Math.round(h.y / 16); break; }
         if (lv.run.lives !== lastLives) { deaths++; lastLives = lv.run.lives; (window.dl = window.dl || []).push(Math.round(lv.respawnAt.x/16)); }
@@ -49,7 +50,7 @@ const ids = process.argv.slice(3);
       }
       const lv = game.top.level;
       return { id, status, frames: f, deaths, x: lv ? Math.round(lv.hero.x / 16) : null, lives: lv ? lv.run.lives : null, mapW: lv ? lv.map.w : null, deathsAt: window.dd, tr: window.tr };
-    }, id);
+    }, { id, TRACE: process.env.TRACE || '' });
     console.log(JSON.stringify(r));
   }
   console.log(errs.join('\n') || 'no errors'); await b.close();

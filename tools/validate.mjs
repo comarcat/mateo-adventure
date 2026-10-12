@@ -35,10 +35,25 @@ for (const id of levelIds()) {
       run = 0;
     }
   }
+  // Reachability + sealed-cell checks
+  const isSolid = (c, r) => SOLID.has(at(c, r)) || at(c, r) === '/' || at(c, r) === '\\';
+  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+    const ch = at(c, r);
+    if (ch === '=') {                                    // one-way plank: surface must be within a plain jump (4 tiles) of the floor below, unless a spring is near
+      let fr = -1; for (let k = r + 1; k < h; k++) if (isSolid(c, k)) { fr = k; break; }
+      if (fr > 0 && fr - r > 4) {
+        let spring = false; for (let k = Math.max(0, c - 14); k < Math.min(w, c + 14) && !spring; k++) for (let q = 0; q < h; q++) if (at(k, q) === 'S') spring = true;
+        if (!spring) fail(id, 'plank at ' + c + ',' + r + ' is ' + (fr - r) + ' tiles above the floor (too high for a jump, no spring nearby)');
+      }
+    }
+    if ('ekbtrwhmvEg1sla*zSC'.includes(ch) || ch === 'o') {      // markers must not sit in a sealed pocket of terrain
+      if (isSolid(c - 1, r) && isSolid(c + 1, r) && isSolid(c, r - 1)) fail(id, "'" + ch + "' at " + c + ',' + r + ' is sealed inside terrain');
+    }
+  }
   for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
     const ch = at(c, r);
     if (GROUND_ENEMY.has(ch)) {
-      const clear = d.world >= 2 ? 4 : 2;      // generated worlds keep enemies further from pits
+      const clear = id === 'test' ? 2 : 6;      // generated worlds keep enemies further from pits
       for (let dc = -clear; dc <= clear; dc++) if (dc !== 0 && floor(c + dc) === -1 && at(c + dc, r + 1) === '.' && floor(c) !== -1) { fail(id, "enemy '" + ch + "' at col " + c + ' is within ' + clear + ' tiles of a pit'); break; }
     }
     if (PICKUPS.has(ch) && SOLID.has(at(c, r))) fail(id, 'pickup inside solid at ' + c + ',' + r);

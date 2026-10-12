@@ -29,6 +29,7 @@ Everything is remappable in **Options -> Controls** (keyboard and gamepad, saved
 | Jump (hold = higher) | Z / Space | A / Y | A |
 | Rush (hold) | C / Shift | B / RT | B |
 | Shoot | X | X / LT | X |
+| Aim while shooting | hold Up / Down (+ Left/Right for diagonals) | D-pad / stick | on-screen D-pad |
 | Previous / next power | Q / E | LB / RB | Q/E |
 | Pause | Esc / P / Enter | Start | II |
 | Menus: confirm / back | Enter, Space, Z / Esc, X | A / B | A / B |
@@ -139,5 +140,5 @@ upload the zip, tick *This file will be played in the browser*, set the viewport
   not been tested here - please report anything odd, especially audio start-up on Safari.
 
 ## Credits
-
+All code, art and music are original to this project. Art is procedurally painted in a 16-bit style (shaded colour ramps, dithering, parallax layers); fonts: an embedded 5x7 pixel font. No external assets.
 All code, art and music are original to this project. Fonts: an embedded 5x7 pixel font. No external assets.

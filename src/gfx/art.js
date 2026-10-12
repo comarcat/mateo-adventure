@@ -120,7 +120,7 @@ const BASE_ART = { blob: gloopy(), spiky: pricklit(), bat: flutter(), pod: popPo
 function overlay(sprite, color, alpha) {
   const [c, g] = mk(sprite.w, sprite.h); g.drawImage(sprite.r, 0, 0);
   g.globalCompositeOperation = 'source-atop'; g.globalAlpha = alpha; g.fillStyle = color; g.fillRect(0, 0, c.width, c.height);
-  return fromCanvas(c);
+  return fromCanvas(c, false);
 }
 export const overlaySprite = overlay;
 BASE_ART.swooper = BASE_ART.bat.map((f) => overlay(f, '#2a8a9a', 0.6));

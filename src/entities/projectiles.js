@@ -15,13 +15,18 @@ export class Projectiles {
   _fire(kind, from, x, y, vx, vy, w, h, dmg, pierceLeft, life, g = 0, warn = 0) {
     const p = this.pool.acquire();
     p.kind = kind; p.from = from; p.x = x; p.y = y; p.vx = vx; p.vy = vy; p.w = w; p.h = h; p.dmg = dmg; p.pierceLeft = pierceLeft; p.pierce = pierceLeft > 0;
-    p.life = life; p.g = g; p.warn = warn; p.t = 0; p.hits.length = 0;
+    p.life = life; p.g = g; p.warn = warn; p.t = 0; p.hits.length = 0; p.dx = Math.sign(vx); p.dy = Math.sign(vy);
+    return p;
   }
   // ---- hero
-  fireGun(x, y, dir) { this._fire('gun', 'hero', dir > 0 ? x : x - 4, y, dir * 4.2, 0, 4, 3, GUN_DMG, 0, 60); }
-  fireLaser(x, y, dir) { this._fire('laser', 'hero', dir > 0 ? x : x - 24, y - 1, dir * 6.5, 0, 24, 3, LASER_DMG, 99, 50); }
-  fireIce(x, y, dir) { this._fire('ice', 'hero', dir > 0 ? x : x - 6, y - 1, dir * 3.6, 0, 6, 6, 1, 0, 70); }
-  fireFire(x, y, dir) { this._fire('fire', 'hero', dir > 0 ? x : x - 8, y - 2, dir * 3, 0, 8, 8, 2, 2, 70); }
+  // Hero shots go in any of 8 directions: (dx,dy) is a unit-ish vector; (x,y) is the muzzle centre.
+  fireHero(kind, x, y, dx, dy) {
+    const diag = dx !== 0 && dy !== 0, vert = dx === 0;
+    const S = { gun: [4.2, 4, 4, GUN_DMG, 0, 60], laser: [6.5, vert ? 4 : (diag ? 14 : 24), vert ? 24 : (diag ? 14 : 4), LASER_DMG, 99, 50], ice: [3.6, 6, 6, 1, 0, 70], fire: [3, 8, 8, 2, 2, 70] }[kind];
+    const [sp, w, h, dmg, pierce, life] = S;
+    const p = this._fire(kind, 'hero', x - w / 2, y - h / 2, dx * sp, dy * sp, w, h, dmg, pierce, life);
+    p.dx = Math.sign(dx); p.dy = Math.sign(dy);
+  }
   // ---- enemies / bosses
   fireWave(x, y, vx) { this._fire('wave', 'enemy', x - 5, y, vx, 0, 10, 8, 1, 0, 140); }
   fireEnemy(x, y, vx, vy) { this._fire('seed', 'enemy', x - 2, y - 2, vx, vy, 5, 5, 1, 0, 200); }
@@ -83,8 +88,13 @@ export class Projectiles {
     this.pool.each((p) => {
       const x = Math.round(p.x), y = Math.round(p.y);
       switch (p.kind) {
-        case 'gun': ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y - 1, 6, 5); ctx.fillStyle = '#ffd84a'; ctx.fillRect(x, y, 4, 3); ctx.fillStyle = '#fff'; ctx.fillRect(x + 1, y, 2, 1); break;
-        case 'laser': ctx.fillStyle = 'rgba(122,240,255,0.35)'; ctx.fillRect(x - 2, y - 2, p.w + 4, 7); ctx.fillStyle = '#7af0ff'; ctx.fillRect(x, y, p.w, 3); ctx.fillStyle = '#fff'; ctx.fillRect(x, y + 1, p.w, 1); break;
+        case 'gun': ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y - 1, p.w + 2, p.h + 2); ctx.fillStyle = '#ffd84a'; ctx.fillRect(x, y, p.w, p.h); ctx.fillStyle = '#fff'; ctx.fillRect(x + 1, y, 2, 1); break;
+        case 'laser':
+          if (p.dx !== 0 && p.dy !== 0) {                                   // diagonal: a staircase of squares along the beam
+            for (let i = 0; i < 5; i++) { const sx = x + (p.dx > 0 ? i * 3 : p.w - 4 - i * 3 + 1), sy = y + (p.dy > 0 ? i * 3 : p.h - 4 - i * 3 + 1); ctx.fillStyle = 'rgba(122,240,255,0.4)'; ctx.fillRect(sx - 1, sy - 1, 6, 6); ctx.fillStyle = '#7af0ff'; ctx.fillRect(sx, sy, 4, 4); ctx.fillStyle = '#fff'; ctx.fillRect(sx + 1, sy + 1, 2, 2); }
+          } else if (p.dx === 0) { ctx.fillStyle = 'rgba(122,240,255,0.35)'; ctx.fillRect(x - 2, y, p.w + 4, p.h); ctx.fillStyle = '#7af0ff'; ctx.fillRect(x, y, p.w, p.h); ctx.fillStyle = '#fff'; ctx.fillRect(x + 1, y, 1, p.h); }
+          else { ctx.fillStyle = 'rgba(122,240,255,0.35)'; ctx.fillRect(x - 2, y - 2, p.w + 4, 7); ctx.fillStyle = '#7af0ff'; ctx.fillRect(x, y, p.w, 3); ctx.fillStyle = '#fff'; ctx.fillRect(x, y + 1, p.w, 1); }
+          break;
         case 'ice': ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y, 8, 6); ctx.fillRect(x, y - 1, 6, 8); ctx.fillStyle = '#bfe8ff'; ctx.fillRect(x, y, 6, 6); ctx.fillStyle = '#fff'; ctx.fillRect(x + 1, y + 1, 2, 2); break;
         case 'fire': { const f = p.t % 6 < 3; ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y, 10, 8); ctx.fillRect(x, y - 1, 8, 10); ctx.fillStyle = '#ff7a1a'; ctx.fillRect(x, y, 8, 8); ctx.fillStyle = f ? '#ffe14a' : '#ffb02a'; ctx.fillRect(x + 2, y + 2, 4, 4); break; }
         case 'wave': { const f = Math.floor(p.life / 4) % 2; ctx.fillStyle = '#2a1b3d'; ctx.fillRect(x - 1, y - 1 - f, 12, 10 + f); ctx.fillStyle = p.col || '#7be07a'; ctx.fillRect(x, y - f, 10, 8 + f); ctx.fillStyle = '#d8ffc8'; ctx.fillRect(x + 2, y + 1 - f, 4, 2); break; }

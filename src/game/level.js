@@ -1,7 +1,7 @@
 // A running level: tilemap + entities + hero + camera + particles. Owns the gameplay simulation.
 // The PlayState wraps this with pause/transition logic; this class never touches the state machine.
 import { W, H, T } from '../config.js';
-import { TileMap, K, tileInRect, overlap } from '../engine/physics.js';
+import { TileMap, K, tileInRect, overlap, moveXBy, moveY } from '../engine/physics.js';
 import { Camera } from '../engine/camera.js';
 import { Particles } from '../entities/particles.js';
 import { Platform } from '../entities/platform.js';
@@ -89,7 +89,12 @@ export class Level {
   }
   spawnPowerOrb(x, y) { this.addPickup('power', x, y); this.audio.sfx('powerup'); this.particles.emit(x + 7, y + 7, 16, { speed: 2, color: ['#e0b8ff', '#fff'], life: 30 }); }
 
-  addPickup(type, x, y) { this.pickups.push({ type, x, y, w: 12, h: 12, t: Math.floor(Math.random() * 60), done: false }); }
+  // pop: items released from a block hop out, fall and slide so they can always be reached from the ground
+  addPickup(type, x, y, pop = null) {
+    const p = { type, x, y, w: 12, h: 12, t: Math.floor(Math.random() * 60), done: false };
+    if (pop) { p.pop = true; p.vx = pop.vx; p.vy = pop.vy; p.grounded = false; p.dropT = 0; }
+    this.pickups.push(p);
+  }
 
   // ------------------------------------------------------------------ scoring
   addScore(base, x, y, useCombo = false) {
@@ -116,7 +121,7 @@ export class Level {
     this.audio.sfx('bump');
     const content = (this.data.blocks && this.data.blocks[c + ',' + r]) || 'coin';
     if (content === 'coin') { this.collectCoin(c * T + 2, (r - 1) * T, true); }
-    else this.addPickup(content, c * T + 2, (r - 1) * T - 2);
+    else this.addPickup(content, c * T + 2, (r - 1) * T - 2, { vx: (this.hero.cx < c * T + 8 ? 1 : -1) * 0.7, vy: -3.2 });
     // anything standing on the block gets knocked
     for (const e of this.enemies) if (!e.dead && Math.abs(e.cx - (c * T + 8)) < 10 && Math.abs(e.y + e.h - r * T) < 3) this.killEnemy(e);
   }
@@ -197,6 +202,11 @@ export class Level {
     for (const e of this.enemies) {
       if (e.dead || !e.awake) continue;
       if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, e)) continue;
+      if (h.shield > 0) {                                           // an active shield wrecks anything it touches (the shield stays up)
+        if (e.elite) { e.hit(3, this); h.vx = -h.facing * 1.5; h.vy = -1.8; } else this.killEnemy(e);
+        this.particles.emit(e.cx, e.cy, 8, { speed: 2.4, color: ['#cffaff', '#7af0ff', '#fff'], life: 16 });
+        continue;
+      }
       if (e.frozen > 0 && !h.smashing) { if (h.vy > 0.3 && (h.y + h.h) - e.y <= 10) { e.hit(2, this); h.vy = -3.6; h.noCut = true; } continue; }
       const stomping = h.vy > 0.3 && (h.y + h.h) - e.y <= 10 && !h.rushing;
       if (h.smashing && (e.def.small || h.star > 0)) {            // rush / star plows through small enemies
@@ -233,12 +243,21 @@ export class Level {
     for (const p of this.pickups) {
       if (p.done) continue;
       if (this.hero.star > 0 && p.type === 'coin') { /* magnet-ish flair could go here */ }
+      if (p.pop) this.updatePopItem(p);
       if (p.type === 'coin' && h.can('magnet')) {       // boss power: COIN MAGNET
         const dx = h.cx - (p.x + 6), dy = h.cy - (p.y + 6), d = Math.hypot(dx, dy);
         if (d < 64 && d > 1) { p.x += dx / d * 2.8; p.y += dy / d * 2.8; }
       }
       if (overlap(h, { x: p.x - 1, y: p.y - 1, w: p.w + 2, h: p.h + 2 })) this.collect(p);
     }
+  }
+
+  updatePopItem(p) {
+    p.vy = Math.min(p.vy + 0.2, 3.6); p.wall = 0;
+    moveXBy(p, this.map, p.vx); if (p.wall) p.vx = -p.vx;
+    moveY(p, this.map);
+    if (p.grounded) p.vx *= 0.97;
+    if (p.y > this.map.pxH + 40) p.done = true;
   }
 
   checkSprings(h) {
@@ -304,9 +323,9 @@ export class Level {
     ctx.translate(-cam.ox, -cam.oy);
     this.drawTiles(ctx, tiles);
     for (const t of this.texts) drawText(ctx, t.text, t.x, t.y, '#fff', 1, { shadow: '#2a1b3d' });
-    for (const cp of this.checkpoints) ctx.drawImage(tiles.flag[cp.on ? 1 : 0], cp.x, cp.y);
-    if (this.goal) ctx.drawImage(tiles.goal, this.goal.x, this.goal.y - 4);
-    for (const p of this.platforms) p.draw(ctx, tiles.platform);
+    for (const cp of this.checkpoints) ctx.drawImage(cp.on ? tiles.flag[1 + (Math.floor(this.frames / 8) % 3)] : tiles.flag[0], cp.x, cp.y);
+    if (this.goal) ctx.drawImage(tiles.goal[Math.floor(this.frames / 8) % 3], this.goal.x, this.goal.y - 4);
+    for (const p of this.platforms) p.draw(ctx);
     this.drawPickups(ctx);
     for (const e of this.enemies) if (!e.dead && e.x > cam.ox - 20 && e.x < cam.ox + W + 20) e.draw(ctx);
     if (this.boss) this.boss.draw(ctx);
@@ -351,9 +370,9 @@ export class Level {
         case K.SOLID: {
           const ch = m.char(c, r);
           if (ch === 'B') img = ts.brick;
-          else if (ch === '?') img = ts.blocks.q;
+          else if (ch === '?') img = ts.blocks.q[(Math.floor(this.frames / 5) + c) % ts.blocks.q.length];
           else if (ch === '!') { img = ts.blocks.used; dy = -(this.bumps.get(c + ',' + r) || 0) * 0.5; }
-          else img = this.covered(c, r) ? ts.dirt : ts.grass;
+          else { const v = (c * 7 + r * 13) % 3; img = this.covered(c, r) ? ts.dirtV[v] : ts.grassV[v]; if (!this.covered(c, r) && m.kind(c, r - 1) === K.EMPTY) ctx.drawImage(ts.tufts[v], c * T, r * T - 3); }
           break;
         }
         case K.ONEWAY: img = ts.oneway; break;

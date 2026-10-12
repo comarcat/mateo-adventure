@@ -55,3 +55,4 @@ export const THEMES = {
     map: { land: '#3a3a70', land2: '#2c2c5c', path: '#c0b0f0', water: '#10102a', decor: 'crystal' },
   }),
 };
+for (const [k, v] of Object.entries(THEMES)) v.name = k;

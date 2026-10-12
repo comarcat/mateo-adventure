@@ -128,14 +128,14 @@ const MrFrost = {
 // ------------------------------------------------------------------ 4. Grand Owl (world 4): flying, feathers, diving crash
 const GrandOwl = {
   name: 'GRAND OWL', w: 26, h: 22, baseHp: 12, score: 8000, art: 'owlbear', phases: [1, 0.66, 0.33],
-  init(b) { b.state = 'hover'; b.timer = 80; b.cycles = 0; b.y = 40; b.hx = W / 2; b.ang = 0; },
+  init(b) { b.state = 'hover'; b.timer = 80; b.cycles = 0; b.y = 74; b.hx = W / 2; b.ang = 0; },
   onPhase(b, lv, phase) { roar(lv); popup(lv, b, phase === 1 ? 'HOOT!' : 'FURIOUS!'); b.invuln = 30; },
   update(b, lv) {
     const h = lv.hero, p = b.phase;
     switch (b.state) {
       case 'hover': {
         b.ang += 0.028 + p * 0.008;
-        b.x = b.hx - b.w / 2 + Math.sin(b.ang) * 86; b.y = 38 + Math.sin(b.t * 0.07) * 6;
+        b.x = b.hx - b.w / 2 + Math.sin(b.ang) * 86; b.y = 74 + Math.sin(b.t * 0.07) * 6;
         if (--b.timer <= 0) {
           b.cycles++; const n = 3 + p * 2;
           for (let i = 0; i < n; i++) { const a = Math.PI / 2 + (i - (n - 1) / 2) * 0.32; lv.projectiles.fireShard(b.cx, b.cy + 6, Math.cos(a) * 1.5, Math.sin(a) * 1.5); }
@@ -155,7 +155,7 @@ const GrandOwl = {
         }
         break;
       case 'crash': if (--b.timer <= 0) { b.state = 'rise'; } break;
-      case 'rise': b.y -= 2.2; if (b.y <= 40) { b.y = 40; b.hx = clamp(b.cx, 70, W - 70); b.ang = 0; b.state = 'hover'; b.timer = 70; } break;
+      case 'rise': b.y -= 2.2; if (b.y <= 74) { b.y = 74; b.hx = clamp(b.cx, 70, W - 70); b.ang = 0; b.state = 'hover'; b.timer = 70; } break;
     }
   },
   frame: (b) => (b.state === 'crash' ? 0 : Math.floor(b.t / 8) % 2),
@@ -230,13 +230,13 @@ const MagmaGolem = {
 // ------------------------------------------------------------------ 7. Storm Bird (world 7): lightning strikes, then a swooping crash-landing
 const StormBird = {
   name: 'STORM BIRD', w: 30, h: 20, baseHp: 14, score: 11000, art: 'stormbird', phases: [1, 0.66, 0.33],
-  init(b) { b.state = 'patrol'; b.timer = 120; b.dirx = 1; b.y = 34; b.laps = 0; },
+  init(b) { b.state = 'patrol'; b.timer = 120; b.dirx = 1; b.y = 68; b.laps = 0; },
   onPhase(b, lv, phase) { roar(lv, 5); popup(lv, b, phase === 1 ? 'THUNDER!' : 'STORM!'); b.invuln = 30; },
   update(b, lv) {
     const h = lv.hero, p = b.phase;
     switch (b.state) {
       case 'patrol':
-        b.x += b.dirx * (1.3 + p * 0.3); b.y = 34 + Math.sin(b.t * 0.08) * 5;
+        b.x += b.dirx * (1.3 + p * 0.3); b.y = 68 + Math.sin(b.t * 0.08) * 5;
         if (b.x < 10) { b.x = 10; b.dirx = 1; b.laps++; } if (b.x + b.w > W - 10) { b.x = W - 10 - b.w; b.dirx = -1; b.laps++; }
         if (--b.timer <= 0) { b.state = 'charge'; b.timer = 34; }
         break;
@@ -258,7 +258,7 @@ const StormBird = {
         break;
       }
       case 'perch': if (--b.timer <= 0) b.state = 'rise'; break;
-      case 'rise': b.y -= 2; if (b.y <= 34) { b.state = 'patrol'; b.timer = 90; b.dirx = b.cx < W / 2 ? 1 : -1; } break;
+      case 'rise': b.y -= 2; if (b.y <= 68) { b.state = 'patrol'; b.timer = 90; b.dirx = b.cx < W / 2 ? 1 : -1; } break;
     }
   },
   frame: (b) => (b.state === 'perch' ? 0 : Math.floor(b.t / 7) % 2),
@@ -314,6 +314,7 @@ export class Boss {
     this.phase = 0; this.invuln = 0; this.flash = 0; this.dead = false; this.deadT = 0; this.active = false; this.awake = true;
     this.grounded = false; this.face = -1; this.t = 0; this.state = 'idle'; this.alpha = 1; this.shakeX = 0;
     this.clip = d.clip || null;
+    this.dropT = 99999;                                   // bosses ignore one-way planks: they always stay on the floor where you can reach them
     this.grav = (lv.data.physics && lv.data.physics.grav) || 1;
     d.init(this);
   }

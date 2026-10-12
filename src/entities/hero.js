@@ -8,7 +8,7 @@ import { POWERS } from '../data/powers.js';
 export const SHIELD_HITS = 8;
 
 const WALK = 1.7, RUSH_SPEED = 3.4;
-const GRAV = 0.23, GRAV_CUT = 0.55, MAX_FALL = 4.8, JUMP_V = 4.7;
+const GRAV = 0.23, GRAV_CUT = 0.55, MAX_FALL = 4.8, JUMP_V = 5.5;
 const COYOTE = 6, BUFFER = 6;
 
 export class Hero {
@@ -243,18 +243,24 @@ export class Hero {
     const p = POWERS[this.slot];
     lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO POWER' : this.slot.toUpperCase()), '#e0b8ff');
   }
+  // Aim with the arrows while shooting: Up = straight up, Up+Left/Right = diagonal, Down (in the air) = down / diagonal down.
+  aim(inp) {
+    const h = (inp.down('right') ? 1 : 0) - (inp.down('left') ? 1 : 0);
+    const up = inp.down('up'), dn = inp.down('down') && !this.grounded;
+    const D = 0.7071;
+    if (up) return h ? [h * D, -D] : [0, -1];
+    if (dn) return h ? [h * D, D] : [0, 1];
+    return [this.facing, 0];
+  }
   tryShoot(lv, inp) {
     const w = this.weapon;
+    const fire = (kind) => { const [dx, dy] = this.aim(inp); lv.projectiles.fireHero(kind, this.cx + dx * (this.w / 2 + 3), this.cy - 1 + dy * (this.h / 2 + 3), dx, dy); };
     if (w === 'gun' && inp.down('shoot') && this.shootCd <= 0) {
-      lv.projectiles.fireGun(this.facing > 0 ? this.x + this.w : this.x, this.y + 5, this.facing);
-      this.ammo--; this.shootCd = 11; lv.audio.sfx('shoot');
+      fire('gun'); this.ammo--; this.shootCd = 11; lv.audio.sfx('shoot');
     } else if (w === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
-      lv.projectiles.fireLaser(this.facing > 0 ? this.x + this.w : this.x, this.y + 6, this.facing);
-      this.charges--; this.shootCd = 22; lv.audio.sfx('laser'); lv.camera.shake(1, 4);
+      fire('laser'); this.charges--; this.shootCd = 22; lv.audio.sfx('laser'); lv.camera.shake(1, 4);
     } else if ((w === 'ice' || w === 'fire') && inp.down('shoot') && this.shootCd <= 0 && this.energy >= 6) {
-      const x = this.facing > 0 ? this.x + this.w : this.x;
-      if (w === 'ice') lv.projectiles.fireIce(x, this.y + 6, this.facing); else lv.projectiles.fireFire(x, this.y + 6, this.facing);
-      this.energy -= w === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(w);
+      fire(w); this.energy -= w === 'ice' ? 6 : 9; this.shootCd = 16; lv.audio.sfx(w);
     } else if (inp.pressed('shoot') && !w) lv.audio.sfx('empty');
   }
 
@@ -263,7 +269,7 @@ export class Hero {
     for (const p of lv.platforms) {
       if (this.x + this.w <= p.x || this.x >= p.x + p.w) continue;
       const bottom = this.y + this.h;
-      if (prevBottom <= p.y + 1.5 && bottom >= p.y - 0.001) {
+      if (prevBottom <= p.y + 6 && bottom >= p.y - 0.001) {          // generous: if you sank a few px into the slab you are lifted onto it, not dropped through
         this.y = p.y - this.h; this.vy = 0; this.grounded = true; this.onOneWay = true; this.riding = p; return;
       }
     }

@@ -1,3 +1,4 @@
+import { enhance } from './paint.js';
 // Sprites are authored as pixel strings + a palette and baked to canvases once at startup.
 // Each baked sprite has right-facing (r) and left-facing (l) versions, plus white "hit flash" versions.
 
@@ -20,7 +21,8 @@ function flip(src) {
 }
 
 // Wrap an already-drawn canvas into a sprite (adds flipped + flash versions).
-export function fromCanvas(c) {
+export function fromCanvas(c, lit = true) {
+  if (lit) enhance(c);
   const l = flip(c);
   return { w: c.width, h: c.height, r: c, l, rw: tint(c, '#fff'), lw: tint(l, '#fff') };
 }
