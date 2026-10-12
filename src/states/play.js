@@ -14,7 +14,10 @@ export class PlayState {
     if (inp.pressed('pause')) { g.push('pause'); return; }
     if (g.debug) this.debugKeys(inp, lv);
     lv.update();
-    if (lv.status === 'clear' && lv.clearT > 150) g.change('complete', { level: this.levelId, frames: lv.frames, hp: lv.hero.hp });
+    if (lv.status === 'clear' && lv.clearT > 150) {
+      const b = lv.bonuses(); g.run.score += b.total;
+      g.change('complete', { level: this.levelId, bonus: b, score: g.run.score, kills: lv.kills, coins: g.run.coins });
+    }
     else if (lv.status === 'gameover') g.change('gameover', { level: this.levelId });
   }
   debugKeys(inp, lv) {

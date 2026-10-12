@@ -6,7 +6,7 @@
 import { T } from '../config.js';
 
 export class LevelBuilder {
-  constructor(w, h) { this.w = w; this.h = h; this.g = Array.from({ length: h }, () => Array(w).fill('.')); this.platforms = []; this.texts = []; }
+  constructor(w, h) { this.w = w; this.h = h; this.g = Array.from({ length: h }, () => Array(w).fill('.')); this.platforms = []; this.texts = []; this.blocks = {}; }
   set(x, y, ch) { if (x >= 0 && x < this.w && y >= 0 && y < this.h) this.g[y][x] = ch; return this; }
   fill(x, y, w, h, ch) { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) this.set(x + i, y + j, ch); return this; }
   // solid ground from column x0..x1 (inclusive) with its top at row `top`
@@ -17,8 +17,10 @@ export class LevelBuilder {
   mover(x, y, wTiles, axis, rangeTiles, speed = 0.6, phase = 0) {
     this.platforms.push({ x: x * T, y: y * T, w: wTiles * T, axis, range: rangeTiles * T, speed, phase }); return this;
   }
+  // '?' block that releases `content` (coin, star, oneup, shield, gun, laser, apple, pizza) when bumped from below
+  block(x, y, content = 'coin') { this.set(x, y, '?'); this.blocks[x + ',' + y] = content; return this; }
   text(x, y, text) { this.texts.push({ x: x * T, y: y * T, text }); return this; }
   build(meta) {
-    return { ...meta, tiles: this.g.map((r) => r.join('')), platforms: this.platforms, texts: this.texts };
+    return { ...meta, tiles: this.g.map((r) => r.join('')), platforms: this.platforms, texts: this.texts, blocks: this.blocks };
   }
 }

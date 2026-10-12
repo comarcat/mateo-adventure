@@ -1,6 +1,7 @@
 // Procedurally drawn tile art (no external assets). Baked per theme into small canvases.
 import { T } from '../config.js';
 import { mk } from './sprites.js';
+import { bakeBlocks } from './art.js';
 
 function R(g, c, x, y, w, h) { g.fillStyle = c; g.fillRect(x, y, w, h); }
 
@@ -111,6 +112,6 @@ export function bakeTileset(th) {
   return {
     grass: grassTile(th), dirt: dirtTile(th), brick: brickTile(th), oneway: onewayTile(th),
     slopeR: slopeTile(th, true), slopeL: slopeTile(th, false), spike: spikeTile(),
-    spring: springFrames(), platform: platformImg(), flag: flagFrames(), goal: goalImg(),
+    blocks: bakeBlocks(), spring: springFrames(), platform: platformImg(), flag: flagFrames(), goal: goalImg(),
   };
 }

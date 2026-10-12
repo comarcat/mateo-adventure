@@ -2,27 +2,30 @@
 // acceleration/deceleration, momentum, and the RUSH speed burst (invulnerable to small enemies).
 import { moveXBy, moveY } from '../engine/physics.js';
 import { MATEO, drawSprite } from '../gfx/sprites.js';
+import { SHIELD_RING } from '../gfx/art.js';
 
-export const HERO_MAX_HP = 6;
+export const SHIELD_HITS = 8;
 
 const WALK = 1.7, RUSH_SPEED = 3.4;
 const GRAV = 0.23, GRAV_CUT = 0.55, MAX_FALL = 4.8, JUMP_V = 4.7;
 const COYOTE = 6, BUFFER = 6;
 
 export class Hero {
-  constructor(x, y) {
+  constructor(x, y, maxHp = 6) {
     this.w = 10; this.h = 14;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.facing = 1; this.grounded = false; this.onSlope = false; this.onOneWay = false; this.wall = 0; this.dropT = 0;
     this.coyote = 0; this.jumpBuf = 0;
-    this.hp = HERO_MAX_HP; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
+    this.maxHp = maxHp; this.hp = maxHp; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
     this.star = 0;                       // timed invulnerability power-up (Stage 2)
     this.meter = 100; this.rushing = false; this.rushCd = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.shootCd = 0;
     this.riding = null; this.animT = 0; this.trail = []; this.noCut = false;
   }
 
   respawn(x, y) {
-    this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = HERO_MAX_HP; this.dead = false; this.deathT = 0;
+    this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = this.maxHp; this.dead = false;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.weapon = null; this.star = 0; this.deathT = 0;
     this.invuln = 120; this.hurtT = 0; this.meter = 100; this.rushing = false; this.rushCd = 0; this.riding = null; this.trail.length = 0;
     this.grounded = false;
   }
@@ -34,6 +37,14 @@ export class Hero {
 
   hurt(dmg, fromX, lv) {
     if (this.dead || this.invuln > 0 || this.star > 0 || lv.cheatInvincible) return false;
+    lv.damageTaken++;
+    if (this.shield > 0) {            // shield absorbs exactly SHIELD_HITS hits
+      this.shield--; this.invuln = 45; this.hurtT = 6;
+      this.vx = (this.cx < fromX ? -1 : 1) * 1.2; this.vy = -1.8; this.grounded = false; this.riding = null;
+      lv.audio.sfx(this.shield ? 'shieldhit' : 'shieldbreak'); lv.camera.shake(this.shield ? 2 : 4, 8);
+      lv.particles.emit(this.cx, this.cy, this.shield ? 5 : 16, { speed: 1.8, color: ['#cffaff', '#7af0ff', '#fff'], life: 20 });
+      return true;
+    }
     this.hp -= dmg; this.invuln = 90; this.hurtT = 14; this.rushing = false;
     const dir = this.cx < fromX ? -1 : 1;
     this.vx = dir * 1.6; this.vy = -2.6; this.grounded = false; this.riding = null;
@@ -94,6 +105,14 @@ export class Hero {
       }
     }
 
+    // ---- weapons: switch with prev/next, shoot with the shoot button
+    if (this.shootCd > 0) this.shootCd--;
+    if (ctl) {
+      if (inp.pressed('next')) this.cycleWeapon(1, lv);
+      if (inp.pressed('prev')) this.cycleWeapon(-1, lv);
+      this.tryShoot(lv, inp);
+    }
+
     // ---- jump: buffer + coyote time + variable height
     const jumpHeld = ctl && inp.down('jump');
     if (ctl && inp.pressed('jump')) this.jumpBuf = BUFFER; else if (this.jumpBuf > 0) this.jumpBuf--;
@@ -136,6 +155,31 @@ export class Hero {
     } else if (this.trail.length) this.trail.shift();
   }
 
+  availableWeapons() {
+    const w = [];
+    if (this.ammo > 0) w.push('gun');
+    if (this.charges > 0) w.push('laser');
+    return w;
+  }
+  cycleWeapon(d, lv) {
+    const a = this.availableWeapons();
+    if (a.length < 2) return;
+    this.weapon = a[(Math.max(0, a.indexOf(this.weapon)) + d + a.length) % a.length];
+    lv.audio.sfx('menu');
+  }
+  tryShoot(lv, inp) {
+    const a = this.availableWeapons();
+    if (!a.includes(this.weapon)) this.weapon = a[0] || null;
+    if (this.weapon === 'gun' && inp.down('shoot') && this.shootCd <= 0) {
+      lv.projectiles.fireGun(this.facing > 0 ? this.x + this.w : this.x, this.y + 5, this.facing);
+      this.ammo--; this.shootCd = 11; lv.audio.sfx('shoot');
+    } else if (this.weapon === 'laser' && inp.pressed('shoot') && this.shootCd <= 0) {
+      lv.projectiles.fireLaser(this.facing > 0 ? this.x + this.w : this.x, this.y + 6, this.facing);
+      this.charges--; this.shootCd = 22; lv.audio.sfx('laser'); lv.camera.shake(1, 4);
+    } else if (inp.pressed('shoot') && !this.weapon) lv.audio.sfx('empty');
+    if (!this.availableWeapons().includes(this.weapon)) this.weapon = this.availableWeapons()[0] || null;
+  }
+
   landOnPlatforms(lv, prevBottom) {
     if (this.vy < 0 || this.dropT > 0) return;
     for (const p of lv.platforms) {
@@ -165,5 +209,13 @@ export class Hero {
     if (this.invuln > 0 && !this.dead && this.invuln % 6 < 3 && this.star <= 0) return;   // blink when hurt
     const flash = (this.hurtT > 8) || (this.star > 0 && lv.frames % 4 < 2);
     drawSprite(ctx, this.sprite(), this.x - 3, this.y - 2, this.facing, flash);
+    if (this.shield > 0 && !this.dead) {       // bubble fades and flickers as hits are used up
+      const frac = this.shield / SHIELD_HITS;
+      if (this.shield > 3 || lv.frames % (this.shield > 1 ? 6 : 3) < 2 + this.shield) {
+        ctx.globalAlpha = 0.25 + 0.75 * frac;
+        ctx.drawImage(SHIELD_RING, Math.round(this.cx - 12), Math.round(this.cy - 12));
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 }

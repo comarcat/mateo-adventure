@@ -5,6 +5,7 @@ import { Input } from '../engine/input.js';
 import { Gfx } from '../engine/gfx.js';
 import { Audio } from '../audio/audio.js';
 import { save } from '../save/save.js';
+import { DIFFICULTY } from '../data/difficulty.js';
 
 export class Game {
   constructor(canvas, container) {
@@ -20,6 +21,7 @@ export class Game {
     this.toastEl = document.getElementById('toast'); this.toastT = 0;
     this.input.onToast = (m) => this.toast(m);
   }
+  get difficulty() { return DIFFICULTY[this.save.settings.difficulty] || DIFFICULTY.normal; }
   newRun() { return { lives: 3, score: 0, coins: 0 }; }
 
   register(name, State) { this.registry[name] = State; }

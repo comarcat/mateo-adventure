@@ -4,7 +4,7 @@ import { T } from '../config.js';
 
 export const K = { EMPTY: 0, SOLID: 1, ONEWAY: 2, SPIKE: 3, SLOPE_R: 4, SLOPE_L: 5, SPRING: 6 };
 // '/' rises to the right (SLOPE_R), '\' rises to the left (SLOPE_L).
-const CHAR_KIND = { '#': K.SOLID, 'B': K.SOLID, '=': K.ONEWAY, '^': K.SPIKE, '/': K.SLOPE_R, '\\': K.SLOPE_L, 'S': K.SPRING };
+const CHAR_KIND = { '#': K.SOLID, 'B': K.SOLID, '?': K.SOLID, '!': K.SOLID, '=': K.ONEWAY, '^': K.SPIKE, '/': K.SLOPE_R, '\\': K.SLOPE_L, 'S': K.SPRING };
 
 export class TileMap {
   constructor(rows) {
