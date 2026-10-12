@@ -13,7 +13,7 @@ export class Game {
     this.ctx = this.gfx.ctx;
     this.save = save;
     this.input = new Input(save.settings.bindings);
-    this.audio = new Audio(save.settings);
+    this.audio = new Audio(save.settings, () => save.flush());
     this.debug = DEBUG;
     this.registry = {}; this.stack = [];
     this.run = this.newRun();
@@ -44,7 +44,8 @@ export class Game {
     this.frame++;
     this.input.poll();
     if (this.input.key('KeyF') && this.top && !this.top.captureKeys) this.gfx.toggleFullscreen();
-    if (this.input.pressed('confirm') || this.input.pressed('jump')) this.audio.unlock();   // browsers need a user gesture
+    if (this.input.pressed('confirm') || this.input.pressed('jump')) this.audio.unlock();   // gamepad presses count as a gesture in most browsers
+    if (this.input.key('KeyM')) this.toast(this.audio.toggleMute() ? 'SOUND MUTED' : 'SOUND ON');
     if (this.top) this.top.update();
     if (this.toastT > 0 && --this.toastT === 0) this.toastEl.style.display = 'none';
   }

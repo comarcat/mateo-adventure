@@ -3,7 +3,7 @@
 A 90s-style 2D platformer (Mario-style stomping, Sonic-style rush, Mega Man-style boss powers) built with
 HTML5 Canvas + vanilla JavaScript ES modules. No build step, no dependencies, no external assets.
 
-**Status: Stage 3 of 7 (classic campaign: overworld map, world 1, boss, save).** See `docs/STAGES.md` for the roadmap.
+**Status: Stage 4 of 7 (chiptune audio engine added).** See `docs/STAGES.md` for the roadmap.
 
 ## Run it
 
@@ -40,7 +40,7 @@ src/states   title, controls, play, pause, complete, gameover
 src/levels   level builder + level registry
 src/ui       menu, HUD
 src/save     versioned localStorage
-src/audio    placeholder (Stage 4)
+src/audio    Web Audio chiptune engine: synth, sequencer, tracks (music), sfx
 ```
 
 ## Adding content (Stage 2)
@@ -56,3 +56,12 @@ Levels are plain data (`{tiles:[strings], platforms, texts, blocks, boss, power,
 `src/levels/index.js` as `"<world>-<n>"` (n=4 is the boss). Names/par times/themes are in `src/data/worlds.js`.
 
 Check every level before committing: `node tools/validate.mjs` (start/goal present, jumpable pits, no hazards or enemies at pit edges).
+
+## Audio (Stage 4)
+
+No audio files: everything is synthesized with the Web Audio API (`src/audio/`). Pulse (with duty cycles), triangle and noise
+channels, a look-ahead step sequencer, 14 original tracks (title, map, 8 worlds, boss, endless, game over, victory) and 32 effects.
+Worlds reuse 4 compositions with their own key/tempo/instruments (`TRACKS` in `tracks.js`). Audio starts on the first key press/click.
+Master / music / SFX sliders and a mute toggle are in Options (saved); `M` toggles mute anywhere. The context suspends when the tab is hidden.
+
+Open `sound-test.html` (served by any static server) to audition every track and effect.

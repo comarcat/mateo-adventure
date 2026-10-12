@@ -4,8 +4,10 @@ import { Menu } from '../ui/menu.js';
 
 export class PauseState {
   constructor(game) { this.game = game; this.transparent = true; }
+  exit() { this.game.audio.duck(false); }
   enter(p) {
     const g = this.game;
+    g.audio.duck(true); g.audio.sfx('pause');
     this.below = g.stack[g.stack.length - 1];
     const camp = this.below.campaign || (p && p.fromMap);
     const all = [

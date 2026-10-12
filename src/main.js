@@ -39,5 +39,6 @@ function frame(now) {
 requestAnimationFrame(frame);
 
 // Pause automatically when the tab/window loses focus.
-addEventListener('blur', () => game.autoPause());
-document.addEventListener('visibilitychange', () => { if (document.hidden) game.autoPause(); last = performance.now(); acc = 0; });
+addEventListener('blur', () => { game.autoPause(); game.audio.suspend(); });
+addEventListener('focus', () => game.audio.resume());
+document.addEventListener('visibilitychange', () => { if (document.hidden) { game.autoPause(); game.audio.suspend(); } else game.audio.resume(); last = performance.now(); acc = 0; });

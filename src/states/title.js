@@ -13,6 +13,7 @@ export class TitleState {
     bg = bg || makeBackground(THEMES.grass); ts = ts || bakeTileset(THEMES.grass);
     this.t = 0;
     const g = this.game;
+    g.audio.music('title');
     const items = [
       { label: 'START', action: () => g.change('modeselect') },
       { label: 'OPTIONS', action: () => g.push('options') },

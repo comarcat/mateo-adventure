@@ -8,13 +8,21 @@ export class OptionsState {
   enter() {
     const g = this.game, st = g.save.settings; this.erase = false;
     const cycle = (d) => { const i = DIFFICULTY_ORDER.indexOf(st.difficulty); st.difficulty = DIFFICULTY_ORDER[(i + d + 3) % 3]; g.save.flush(); };
+    const bar = (v) => '[' + '#'.repeat(Math.round(v * 10)) + '-'.repeat(10 - Math.round(v * 10)) + ']';
+    const vol = (kind, name) => ({
+      label: () => name + ' ' + bar(st[kind]),
+      action: () => {}, onLeft: () => { g.audio.setVolume(kind, st[kind] - 0.1); g.audio.sfx(kind === 'music' ? 'menu' : 'coin'); },
+      onRight: () => { g.audio.setVolume(kind, st[kind] + 0.1); g.audio.sfx(kind === 'music' ? 'menu' : 'coin'); },
+    });
     this.items = [
       { label: () => 'DIFFICULTY  < ' + g.difficulty.label + ' >', action: () => cycle(1), onLeft: () => cycle(-1), onRight: () => cycle(1) },
+      vol('master', 'MASTER'), vol('music', 'MUSIC '), vol('sfx', 'SFX   '),
+      { label: () => 'SOUND  < ' + (st.muted ? 'MUTED' : 'ON') + ' >', action: () => g.audio.toggleMute(), onLeft: () => g.audio.toggleMute(), onRight: () => g.audio.toggleMute() },
       { label: 'CONTROLS', action: () => g.push('controls') },
       { label: () => (this.erase ? 'REALLY ERASE? PRESS AGAIN' : 'ERASE SAVE DATA'), action: () => { if (!this.erase) { this.erase = true; return; } g.save.reset(); g.input.setBindings(null); g.toast('SAVE ERASED'); this.erase = false; } },
       { label: 'BACK', action: () => g.pop() },
     ];
-    this.menu = new Menu(this.items, { y: 70, gap: 16, onBack: () => g.pop() });
+    this.menu = new Menu(this.items, { y: 54, gap: 14, onBack: () => g.pop() });
   }
   update() { const was = this.menu.i; this.menu.update(this.game); if (this.menu.i !== was) this.erase = false; }
   draw(ctx) {
@@ -22,6 +30,6 @@ export class OptionsState {
     drawText(ctx, 'OPTIONS', W / 2, 24, '#ffd84a', 2, { align: 'center', shadow: '#000' });
     this.menu.draw(ctx, this.game.frame);
     const d = this.game.difficulty;
-    drawText(ctx, d.maxHp + ' HEARTS  ENEMY SPEED X' + d.enemySpeed, W / 2, 168, '#9ad', 1, { align: 'center' });
+    drawText(ctx, d.maxHp + ' HEARTS  ENEMY SPEED X' + d.enemySpeed, W / 2, 190, '#9ad', 1, { align: 'center' });
   }
 }

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Mateo Adventure - Sound Test</title>
+<style>
+  body { font: 14px monospace; background: #1b1030; color: #d8dcec; margin: 0; padding: 16px; }
+  h1 { color: #ffd84a; font-size: 18px; } h2 { color: #ff9a2e; font-size: 14px; margin: 18px 0 6px; }
+  button { font: 13px monospace; margin: 3px; padding: 6px 10px; cursor: pointer; background: #2a1b3d; color: #fff; border: 2px solid #6b5a80; }
+  button:hover { border-color: #ffd84a; } button.on { background: #ffd84a; color: #2a1b3d; }
+  #stop { border-color: #ff4a5a; } label { margin-right: 14px; }
+</style></head><body>
+<h1>Mateo Adventure - Sound Test</h1>
+<p>All music and effects are synthesized live with the Web Audio API (no audio files). Click to play.</p>
+<label>Music vol <input id="mv" type="range" min="0" max="10" value="7"></label>
+<label>SFX vol <input id="sv" type="range" min="0" max="10" value="8"></label>
+<button id="stop">STOP MUSIC</button>
+<h2>MUSIC</h2><div id="music"></div>
+<h2>SOUND EFFECTS</h2><div id="sfx"></div>
+<script type="module">
+import { Synth } from './src/audio/synth.js';
+import { Sequencer } from './src/audio/sequencer.js';
+import { TRACKS } from './src/audio/tracks.js';
+import { SFX } from './src/audio/sfx.js';
+let ctx, synth, seq, cur = null;
+function init() {
+  if (ctx) return; ctx = new (window.AudioContext || window.webkitAudioContext)(); synth = new Synth(ctx); seq = new Sequencer(synth); vol();
+}
+function vol() { if (!synth) return; const m = mv.value / 10, s = sv.value / 10; synth.musicBus.gain.value = m * m; synth.sfxBus.gain.value = 1.6 * s * s; }
+mv.oninput = sv.oninput = vol;
+const mark = () => document.querySelectorAll('#music button').forEach((b) => b.classList.toggle('on', b.dataset.n === cur));
+for (const n of Object.keys(TRACKS)) {
+  const b = document.createElement('button'); b.textContent = n; b.dataset.n = n;
+  b.onclick = () => { init(); ctx.resume(); cur = n; seq.play(n, !['gameover', 'victory'].includes(n)); mark(); };
+  music.appendChild(b);
+}
+for (const n of Object.keys(SFX)) {
+  const b = document.createElement('button'); b.textContent = n;
+  b.onclick = () => { init(); ctx.resume(); SFX[n](synth, synth.sfxBus, ctx.currentTime + 0.01); };
+  sfx.appendChild(b);
+}
+stop.onclick = () => { if (seq) seq.stop(0.2); cur = null; mark(); };
+</script></body></html>
