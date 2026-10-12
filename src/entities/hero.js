@@ -5,7 +5,8 @@ import { MATEO, drawSprite } from '../gfx/sprites.js';
 import { SHIELD_RING } from '../gfx/art.js';
 import { POWERS } from '../data/powers.js';
 
-export const SHIELD_HITS = 8;
+export const SHIELD_TIME = 900;            // 15 seconds at 60fps
+export const GUN_MAX = 40, LASER_MAX = 8;   // ammo caps (ammo carries over between levels)
 
 const WALK = 1.7, RUSH_SPEED = 3.4;
 const GRAV = 0.23, GRAV_CUT = 0.55, MAX_FALL = 4.8, JUMP_V = 5.5;
@@ -21,34 +22,45 @@ export class Hero {
     this.maxHp = maxHp; this.hp = maxHp; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
     this.star = 0;                       // timed invulnerability power-up (Stage 2)
     this.meter = 100; this.rushing = false; this.rushCd = 0;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.slot = 'base'; this.shootCd = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.slot = 'base'; this.reg = null; this.shootCd = 0;
     this.riding = null; this.animT = 0; this.trail = []; this.noCut = false;
     this.airDashes = 1; this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.wallCoyote = 0; this.wallDirMem = 0; this.noCtlX = 0; this.gliding = false;
   }
 
   respawn(x, y) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = this.maxHp; this.dead = false;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.star = 0; this.deathT = 0;
+    this.shield = 0; this.star = 0; this.deathT = 0;      // ammo carries over; only the timed shield / star are lost
     if (!this.slotList().includes(this.slot)) this.slot = 'base';
     this.invuln = 120; this.hurtT = 0; this.meter = 100; this.rushing = false; this.rushCd = 0; this.riding = null; this.trail.length = 0;
     this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.noCtlX = 0; this.gliding = false;
     this.grounded = false;
   }
 
-  // ---- power slots (Mega Man style): ONE slot is active at a time, cycled with Q/E.
-  //   'base' = no special power;  an ability power (double jump, air dash...) = that ability is on;
-  //   'gun' / 'laser' / 'ice' / 'fire' = that weapon is selected for the shoot button.
-  get weapon() { return ['gun', 'laser', 'ice', 'fire'].includes(this.slot) ? this.slot : null; }
-  set weapon(v) { this.slot = v || 'base'; }
+  // ---- Mega Man style power system
+  //   BOSS POWER (`slot`, one at a time, cycled with Q/E): 'base' = none, an ability (double jump, air dash...) or a boss shot ('ice' / 'fire').
+  //   REGULAR WEAPON (`reg`): 'gun' (ammo) or 'laser' (charges), found in levels, capped, switched with the weapon key (V).
+  //   The shoot button fires the boss shot when ice/fire is selected, otherwise the regular weapon.
+  get weapon() { return this.slot === 'ice' || this.slot === 'fire' ? this.slot : (this.regList().includes(this.reg) ? this.reg : (this.regList()[0] || null)); }
+  set weapon(v) { if (v === 'ice' || v === 'fire') this.slot = v; else { this.reg = v; if (this.slot === 'ice' || this.slot === 'fire') this.slot = 'base'; } }
   can(id) { return this.powers.has(id) && this.slot === id; }          // is this ability currently active?
   slotList() {
     const l = ['base'];
     for (const [id, p] of Object.entries(POWERS)) if (p.kind === 'ability' && this.powers.has(id)) l.push(id);
-    return l.concat(this.availableWeapons());
+    if (this.powers.has('iceshot')) l.push('ice');
+    if (this.powers.has('fireshot')) l.push('fire');
+    return l;
   }
+  regList() { const w = []; if (this.ammo > 0) w.push('gun'); if (this.charges > 0) w.push('laser'); return w; }
+  availableWeapons() { return this.regList(); }
   setSlot(slot, lv) { this.slot = slot; if (lv && lv.run) lv.run.slot = slot; }
-  // pick up a new power: switch to it right away
+  // pick up a new boss power: switch to it right away
   equip(slot, lv) { if (slot === 'iceshot') slot = 'ice'; else if (slot === 'fireshot') slot = 'fire'; this.setSlot(slot, lv); }
+  cycleReg(lv) {
+    const l = this.regList(); if (l.length < 2) return;
+    const cur = l.includes(this.reg) ? this.reg : l[0]; this.reg = l[(l.indexOf(cur) + 1) % l.length];
+    if (this.slot === 'ice' || this.slot === 'fire') this.setSlot('base', lv);
+    lv.audio.sfx('menu'); lv.popups.add(this.cx, this.y - 10, this.reg.toUpperCase(), '#ffd84a');
+  }
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
@@ -58,12 +70,10 @@ export class Hero {
   hurt(dmg, fromX, lv) {
     if (this.dead || this.invuln > 0 || this.star > 0 || lv.cheatInvincible) return false;
     lv.damageTaken++;
-    if (this.shield > 0) {            // shield absorbs exactly SHIELD_HITS hits
-      this.shield--; this.invuln = 45; this.hurtT = 6;
-      this.vx = (this.cx < fromX ? -1 : 1) * 1.2; this.vy = -1.8; this.grounded = false; this.riding = null;
-      lv.audio.sfx(this.shield ? 'shieldhit' : 'shieldbreak'); lv.camera.shake(this.shield ? 2 : 4, 8);
-      lv.particles.emit(this.cx, this.cy, this.shield ? 5 : 16, { speed: 1.8, color: ['#cffaff', '#7af0ff', '#fff'], life: 20 });
-      return true;
+    if (this.shield > 0) {            // the timed shield blocks every hit while it lasts
+      this.invuln = 20; lv.audio.sfx('shieldhit');
+      lv.particles.emit(this.cx, this.cy, 5, { speed: 1.8, color: ['#cffaff', '#7af0ff', '#fff'], life: 20 });
+      return false;
     }
     this.hp -= dmg; this.invuln = 90; this.hurtT = 14; this.rushing = false;
     const dir = this.cx < fromX ? -1 : 1;
@@ -138,9 +148,12 @@ export class Hero {
 
     // ---- weapons: switch with prev/next, shoot with the shoot button
     if (this.shootCd > 0) this.shootCd--;
+    if (this.shield > 0) this.shield--;
+    if (lv.run) { lv.run.ammo = this.ammo; lv.run.charges = this.charges; lv.run.reg = this.reg; }
     if (this.energy < 100) this.energy = Math.min(100, this.energy + 0.07);
     if (ctl) {
-      if (!this.slotList().includes(this.slot)) this.setSlot('base', lv);       // e.g. ammo ran out
+      if (!this.slotList().includes(this.slot)) this.setSlot('base', lv);
+      if (inp.pressed('weapon')) this.cycleReg(lv);
       if (inp.pressed('next')) this.cycleSlot(1, lv);
       if (inp.pressed('prev')) this.cycleSlot(-1, lv);
       this.tryShoot(lv, inp);
@@ -227,21 +240,13 @@ export class Hero {
     if (lv.boss && !lv.boss.dead && Math.abs(lv.boss.cx - this.cx) < 40 && Math.abs(lv.boss.cy - this.cy) < 30) lv.boss.hit(2, lv, 'pound');
   }
 
-  availableWeapons() {
-    const w = [];
-    if (this.ammo > 0) w.push('gun');
-    if (this.charges > 0) w.push('laser');
-    if (this.powers.has('iceshot')) w.push('ice');
-    if (this.powers.has('fireshot')) w.push('fire');
-    return w;
-  }
   cycleSlot(d, lv) {
     const a = this.slotList();
     if (a.length < 2) return;
     this.setSlot(a[(Math.max(0, a.indexOf(this.slot)) + d + a.length) % a.length], lv);
     lv.audio.sfx('menu');
     const p = POWERS[this.slot];
-    lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO POWER' : this.slot.toUpperCase()), '#e0b8ff');
+    lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO BOSS POWER' : this.slot.toUpperCase()), '#e0b8ff');
   }
   // Aim with the arrows while shooting: Up = straight up, Up+Left/Right = diagonal, Down (in the air) = down / diagonal down.
   aim(inp) {
@@ -293,10 +298,9 @@ export class Hero {
     if (this.invuln > 0 && !this.dead && this.invuln % 6 < 3 && this.star <= 0) return;   // blink when hurt
     const flash = (this.hurtT > 8) || (this.star > 0 && lv.frames % 4 < 2);
     drawSprite(ctx, this.sprite(), this.x - 3, this.y - 2, this.facing, flash);
-    if (this.shield > 0 && !this.dead) {       // bubble fades and flickers as hits are used up
-      const frac = this.shield / SHIELD_HITS;
-      if (this.shield > 3 || lv.frames % (this.shield > 1 ? 6 : 3) < 2 + this.shield) {
-        ctx.globalAlpha = 0.25 + 0.75 * frac;
+    if (this.shield > 0 && !this.dead) {       // timed bubble
+      if (this.shield > 180 || lv.frames % 8 < 5) {              // flickers during the last 3 seconds
+        ctx.globalAlpha = 0.85;
         ctx.drawImage(SHIELD_RING, Math.round(this.cx - 12), Math.round(this.cy - 12));
         ctx.globalAlpha = 1;
       }

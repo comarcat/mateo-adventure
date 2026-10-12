@@ -5,7 +5,7 @@ import { TileMap, K, tileInRect, overlap, moveXBy, moveY } from '../engine/physi
 import { Camera } from '../engine/camera.js';
 import { Particles } from '../entities/particles.js';
 import { Platform } from '../entities/platform.js';
-import { Hero } from '../entities/hero.js';
+import { Hero, SHIELD_TIME, GUN_MAX, LASER_MAX } from '../entities/hero.js';
 import { Enemy } from '../entities/enemy.js';
 import { Boss, drawBossBar } from '../entities/boss.js';
 import { Projectiles } from '../entities/projectiles.js';
@@ -55,6 +55,7 @@ export class Level {
     this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp, run.powers || []);
     if (ch.powers) for (const id of Object.keys(POWERS)) this.hero.powers.add(id);
     if (run.slot && this.hero.slotList().includes(run.slot)) this.hero.slot = run.slot;
+    this.hero.ammo = run.ammo || 0; this.hero.charges = run.charges || 0; this.hero.reg = run.reg || null;
     this.respawnAt = { ...this.start };
     this.camera.snap(this.hero, this.map.pxW, this.map.pxH);
   }
@@ -134,11 +135,15 @@ export class Level {
   }
   giveLife(x, y) { if (this.run.lives < 9) this.run.lives++; this.audio.sfx('1up'); this.popups.add(x, y - 8, '1UP', '#37d46a'); }
 
-  // A picked-up weapon is equipped right away, unless an ability power is selected (don't switch it off behind the player's back).
+  // A picked-up regular weapon becomes the active one if you had none (or it was empty); otherwise the weapon key (V) switches.
   autoEquip(weapon, x, y) {
     const h = this.hero;
-    if (h.slot === 'base' || h.slot === weapon || h.weapon) h.setSlot(weapon, this);
-    else this.popups.add(x, y - 8, weapon.toUpperCase() + ' READY (Q/E)', '#ffd84a');
+    if (!h.regList().includes(h.reg) || h.reg === weapon) h.reg = weapon;
+    else this.popups.add(x, y - 8, weapon.toUpperCase() + ' READY (V)', '#ffd84a');
+  }
+  topUp(h, key, add, max, label, x, y) {
+    const was = h[key]; h[key] = Math.min(max, h[key] + add);
+    if (h[key] === max && was === max) this.popups.add(x, y - 8, 'MAX', '#ffd84a'); else if (h[key] === max) this.popups.add(x, y - 8, label + ' MAX', '#ffd84a');
   }
 
   collect(p) {
@@ -147,9 +152,9 @@ export class Level {
       case 'coin': this.collectCoin(p.x, p.y); break;
       case 'star': h.star = 600; this.audio.sfx('powerup'); this.addScore(500, cx, cy); break;
       case 'oneup': this.giveLife(cx, cy); this.addScore(1000, cx, cy - 8); break;
-      case 'shield': h.shield = 8; this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
-      case 'gun': h.ammo = Math.min(99, h.ammo + 20); this.autoEquip('gun', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
-      case 'laser': h.charges = Math.min(20, h.charges + 5); this.autoEquip('laser', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'shield': h.shield = SHIELD_TIME; this.popups.add(cx, cy - 8, 'SHIELD 15S', '#7af0ff'); this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
+      case 'gun': this.topUp(h, 'ammo', 12, GUN_MAX, 'AMMO', cx, cy); this.autoEquip('gun', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'laser': this.topUp(h, 'charges', 3, LASER_MAX, 'LASER', cx, cy); this.autoEquip('laser', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
       case 'power': { const id = this.data.power; h.powers.add(id); h.equip(id, this); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
       case 'apple': h.hp = Math.min(h.maxHp, h.hp + 2); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+2 HP', '#ff7a7a'); break;
       case 'pizza': h.hp = Math.min(h.maxHp, h.hp + 4); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+4 HP', '#ff7a7a'); break;
@@ -202,7 +207,7 @@ export class Level {
     for (const e of this.enemies) {
       if (e.dead || !e.awake) continue;
       if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, e)) continue;
-      if (h.shield > 0) {                                           // an active shield wrecks anything it touches (the shield stays up)
+      if (h.shield > 0) {                                           // an active shield wrecks anything it touches (the shield stays up until its timer ends)
         if (e.elite) { e.hit(3, this); h.vx = -h.facing * 1.5; h.vy = -1.8; } else this.killEnemy(e);
         this.particles.emit(e.cx, e.cy, 8, { speed: 2.4, color: ['#cffaff', '#7af0ff', '#fff'], life: 16 });
         continue;

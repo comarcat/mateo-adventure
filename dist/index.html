@@ -49,21 +49,21 @@ return { W, H, T, STEP_MS, DEBUG };
 __m["src/engine/input.js"] = (function () {
 // Unified input: keyboard + Gamepad API (standard mapping) -> abstract actions.
 // Menus and gameplay both read the same actions, so everything works on keyboard and pad.
-const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'pause', 'confirm', 'back'];
+const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'weapon', 'pause', 'confirm', 'back'];
 // Actions that appear in the remapping screen (menu actions keep their fixed defaults).
-const REMAPPABLE = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'pause'];
+const REMAPPABLE = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'weapon', 'pause'];
 
 const DEFAULT_BINDINGS = {
   kb: {
     left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'], up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'],
     jump: ['KeyZ', 'Space'], shoot: ['KeyX'], rush: ['KeyC', 'ShiftLeft', 'ShiftRight'],
-    next: ['KeyE'], prev: ['KeyQ'], pause: ['Escape', 'KeyP', 'Enter'],
+    next: ['KeyE'], prev: ['KeyQ'], weapon: ['KeyV'], pause: ['Escape', 'KeyP', 'Enter'],
     confirm: ['Enter', 'Space', 'KeyZ'], back: ['Escape', 'KeyX', 'Backspace'],
   },
   // Standard gamepad mapping: 0=A/Cross 1=B/Circle 2=X/Square 3=Y/Triangle 4=LB 5=RB 6=LT 7=RT 9=Start 12-15=dpad
   pad: {
     left: [14], right: [15], up: [12], down: [13],
-    jump: [0, 3], shoot: [2, 6], rush: [1, 7], next: [5], prev: [4], pause: [9],
+    jump: [0, 3], shoot: [2, 6], rush: [1, 7], next: [5], prev: [4], weapon: [8], pause: [9],
     confirm: [0], back: [1],
   },
 };
@@ -773,6 +773,7 @@ const LAYOUT = [
   ['rush',  'B',      ['rush', 'back'],    'right:88px;bottom:30px', 52],
   ['shoot', 'X',      ['shoot'],           'right:88px;bottom:96px', 52],
   ['next',  'Q/E',    ['next'],  'right:14px;bottom:130px', 40],
+  ['weapon', 'W',    ['weapon'], 'right:14px;bottom:182px', 40],
   ['pause', 'II',     ['pause'], 'right:14px;top:8px', 38],
 ];
 
@@ -1780,7 +1781,7 @@ const { W, H } = __m["src/config.js"];
 const { drawText } = __m["src/engine/font.js"];
 const { keyLabel, REMAPPABLE, DEFAULT_BINDINGS } = __m["src/engine/input.js"];
 
-const NAMES = { left: 'MOVE LEFT', right: 'MOVE RIGHT', up: 'UP / LOOK', down: 'DOWN / DROP', jump: 'JUMP', shoot: 'SHOOT', rush: 'RUSH', next: 'NEXT POWER', prev: 'PREV POWER', pause: 'PAUSE' };
+const NAMES = { left: 'MOVE LEFT', right: 'MOVE RIGHT', up: 'UP / LOOK', down: 'DOWN / DROP', jump: 'JUMP', shoot: 'SHOOT', rush: 'RUSH', next: 'NEXT BOSS POWER', prev: 'PREV BOSS POWER', weapon: 'SWITCH GUN/LASER', pause: 'PAUSE' };
 const PAD_NAMES = ['A', 'B', 'X', 'Y', 'LB', 'RB', 'LT', 'RT', 'SELECT', 'START', 'L3', 'R3', 'D-UP', 'D-DOWN', 'D-LEFT', 'D-RIGHT'];
 
 // Controls: shows and REMAPS keyboard keys and gamepad buttons. Up/down = pick action, left/right = keyboard or pad column,
@@ -2519,7 +2520,8 @@ const { MATEO, drawSprite } = __m["src/gfx/sprites.js"];
 const { SHIELD_RING } = __m["src/gfx/art.js"];
 const { POWERS } = __m["src/data/powers.js"];
 
-const SHIELD_HITS = 8;
+const SHIELD_TIME = 900;            // 15 seconds at 60fps
+const GUN_MAX = 40, LASER_MAX = 8;   // ammo caps (ammo carries over between levels)
 
 const WALK = 1.7, RUSH_SPEED = 3.4;
 const GRAV = 0.23, GRAV_CUT = 0.55, MAX_FALL = 4.8, JUMP_V = 5.5;
@@ -2535,34 +2537,45 @@ class Hero {
     this.maxHp = maxHp; this.hp = maxHp; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
     this.star = 0;                       // timed invulnerability power-up (Stage 2)
     this.meter = 100; this.rushing = false; this.rushCd = 0;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.slot = 'base'; this.shootCd = 0;
+    this.shield = 0; this.ammo = 0; this.charges = 0; this.slot = 'base'; this.reg = null; this.shootCd = 0;
     this.riding = null; this.animT = 0; this.trail = []; this.noCut = false;
     this.airDashes = 1; this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.wallCoyote = 0; this.wallDirMem = 0; this.noCtlX = 0; this.gliding = false;
   }
 
   respawn(x, y) {
     this.x = x; this.y = y; this.vx = 0; this.vy = 0; this.hp = this.maxHp; this.dead = false;
-    this.shield = 0; this.ammo = 0; this.charges = 0; this.star = 0; this.deathT = 0;
+    this.shield = 0; this.star = 0; this.deathT = 0;      // ammo carries over; only the timed shield / star are lost
     if (!this.slotList().includes(this.slot)) this.slot = 'base';
     this.invuln = 120; this.hurtT = 0; this.meter = 100; this.rushing = false; this.rushCd = 0; this.riding = null; this.trail.length = 0;
     this.dashT = 0; this.pounding = false; this.energy = 100; this.sliding = 0; this.noCtlX = 0; this.gliding = false;
     this.grounded = false;
   }
 
-  // ---- power slots (Mega Man style): ONE slot is active at a time, cycled with Q/E.
-  //   'base' = no special power;  an ability power (double jump, air dash...) = that ability is on;
-  //   'gun' / 'laser' / 'ice' / 'fire' = that weapon is selected for the shoot button.
-  get weapon() { return ['gun', 'laser', 'ice', 'fire'].includes(this.slot) ? this.slot : null; }
-  set weapon(v) { this.slot = v || 'base'; }
+  // ---- Mega Man style power system
+  //   BOSS POWER (`slot`, one at a time, cycled with Q/E): 'base' = none, an ability (double jump, air dash...) or a boss shot ('ice' / 'fire').
+  //   REGULAR WEAPON (`reg`): 'gun' (ammo) or 'laser' (charges), found in levels, capped, switched with the weapon key (V).
+  //   The shoot button fires the boss shot when ice/fire is selected, otherwise the regular weapon.
+  get weapon() { return this.slot === 'ice' || this.slot === 'fire' ? this.slot : (this.regList().includes(this.reg) ? this.reg : (this.regList()[0] || null)); }
+  set weapon(v) { if (v === 'ice' || v === 'fire') this.slot = v; else { this.reg = v; if (this.slot === 'ice' || this.slot === 'fire') this.slot = 'base'; } }
   can(id) { return this.powers.has(id) && this.slot === id; }          // is this ability currently active?
   slotList() {
     const l = ['base'];
     for (const [id, p] of Object.entries(POWERS)) if (p.kind === 'ability' && this.powers.has(id)) l.push(id);
-    return l.concat(this.availableWeapons());
+    if (this.powers.has('iceshot')) l.push('ice');
+    if (this.powers.has('fireshot')) l.push('fire');
+    return l;
   }
+  regList() { const w = []; if (this.ammo > 0) w.push('gun'); if (this.charges > 0) w.push('laser'); return w; }
+  availableWeapons() { return this.regList(); }
   setSlot(slot, lv) { this.slot = slot; if (lv && lv.run) lv.run.slot = slot; }
-  // pick up a new power: switch to it right away
+  // pick up a new boss power: switch to it right away
   equip(slot, lv) { if (slot === 'iceshot') slot = 'ice'; else if (slot === 'fireshot') slot = 'fire'; this.setSlot(slot, lv); }
+  cycleReg(lv) {
+    const l = this.regList(); if (l.length < 2) return;
+    const cur = l.includes(this.reg) ? this.reg : l[0]; this.reg = l[(l.indexOf(cur) + 1) % l.length];
+    if (this.slot === 'ice' || this.slot === 'fire') this.setSlot('base', lv);
+    lv.audio.sfx('menu'); lv.popups.add(this.cx, this.y - 10, this.reg.toUpperCase(), '#ffd84a');
+  }
 
   get cx() { return this.x + this.w / 2; }
   get cy() { return this.y + this.h / 2; }
@@ -2572,12 +2585,10 @@ class Hero {
   hurt(dmg, fromX, lv) {
     if (this.dead || this.invuln > 0 || this.star > 0 || lv.cheatInvincible) return false;
     lv.damageTaken++;
-    if (this.shield > 0) {            // shield absorbs exactly SHIELD_HITS hits
-      this.shield--; this.invuln = 45; this.hurtT = 6;
-      this.vx = (this.cx < fromX ? -1 : 1) * 1.2; this.vy = -1.8; this.grounded = false; this.riding = null;
-      lv.audio.sfx(this.shield ? 'shieldhit' : 'shieldbreak'); lv.camera.shake(this.shield ? 2 : 4, 8);
-      lv.particles.emit(this.cx, this.cy, this.shield ? 5 : 16, { speed: 1.8, color: ['#cffaff', '#7af0ff', '#fff'], life: 20 });
-      return true;
+    if (this.shield > 0) {            // the timed shield blocks every hit while it lasts
+      this.invuln = 20; lv.audio.sfx('shieldhit');
+      lv.particles.emit(this.cx, this.cy, 5, { speed: 1.8, color: ['#cffaff', '#7af0ff', '#fff'], life: 20 });
+      return false;
     }
     this.hp -= dmg; this.invuln = 90; this.hurtT = 14; this.rushing = false;
     const dir = this.cx < fromX ? -1 : 1;
@@ -2652,9 +2663,12 @@ class Hero {
 
     // ---- weapons: switch with prev/next, shoot with the shoot button
     if (this.shootCd > 0) this.shootCd--;
+    if (this.shield > 0) this.shield--;
+    if (lv.run) { lv.run.ammo = this.ammo; lv.run.charges = this.charges; lv.run.reg = this.reg; }
     if (this.energy < 100) this.energy = Math.min(100, this.energy + 0.07);
     if (ctl) {
-      if (!this.slotList().includes(this.slot)) this.setSlot('base', lv);       // e.g. ammo ran out
+      if (!this.slotList().includes(this.slot)) this.setSlot('base', lv);
+      if (inp.pressed('weapon')) this.cycleReg(lv);
       if (inp.pressed('next')) this.cycleSlot(1, lv);
       if (inp.pressed('prev')) this.cycleSlot(-1, lv);
       this.tryShoot(lv, inp);
@@ -2741,21 +2755,13 @@ class Hero {
     if (lv.boss && !lv.boss.dead && Math.abs(lv.boss.cx - this.cx) < 40 && Math.abs(lv.boss.cy - this.cy) < 30) lv.boss.hit(2, lv, 'pound');
   }
 
-  availableWeapons() {
-    const w = [];
-    if (this.ammo > 0) w.push('gun');
-    if (this.charges > 0) w.push('laser');
-    if (this.powers.has('iceshot')) w.push('ice');
-    if (this.powers.has('fireshot')) w.push('fire');
-    return w;
-  }
   cycleSlot(d, lv) {
     const a = this.slotList();
     if (a.length < 2) return;
     this.setSlot(a[(Math.max(0, a.indexOf(this.slot)) + d + a.length) % a.length], lv);
     lv.audio.sfx('menu');
     const p = POWERS[this.slot];
-    lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO POWER' : this.slot.toUpperCase()), '#e0b8ff');
+    lv.popups.add(this.cx, this.y - 10, p ? p.name : (this.slot === 'base' ? 'NO BOSS POWER' : this.slot.toUpperCase()), '#e0b8ff');
   }
   // Aim with the arrows while shooting: Up = straight up, Up+Left/Right = diagonal, Down (in the air) = down / diagonal down.
   aim(inp) {
@@ -2807,10 +2813,9 @@ class Hero {
     if (this.invuln > 0 && !this.dead && this.invuln % 6 < 3 && this.star <= 0) return;   // blink when hurt
     const flash = (this.hurtT > 8) || (this.star > 0 && lv.frames % 4 < 2);
     drawSprite(ctx, this.sprite(), this.x - 3, this.y - 2, this.facing, flash);
-    if (this.shield > 0 && !this.dead) {       // bubble fades and flickers as hits are used up
-      const frac = this.shield / SHIELD_HITS;
-      if (this.shield > 3 || lv.frames % (this.shield > 1 ? 6 : 3) < 2 + this.shield) {
-        ctx.globalAlpha = 0.25 + 0.75 * frac;
+    if (this.shield > 0 && !this.dead) {       // timed bubble
+      if (this.shield > 180 || lv.frames % 8 < 5) {              // flickers during the last 3 seconds
+        ctx.globalAlpha = 0.85;
         ctx.drawImage(SHIELD_RING, Math.round(this.cx - 12), Math.round(this.cy - 12));
         ctx.globalAlpha = 1;
       }
@@ -2818,7 +2823,7 @@ class Hero {
   }
 }
 
-return { SHIELD_HITS, Hero };
+return { SHIELD_TIME, GUN_MAX, Hero };
 })();
 // ---- src/data/enemies.js
 __m["src/data/enemies.js"] = (function () {
@@ -3583,7 +3588,7 @@ const { TileMap, K, tileInRect, overlap, moveXBy, moveY } = __m["src/engine/phys
 const { Camera } = __m["src/engine/camera.js"];
 const { Particles } = __m["src/entities/particles.js"];
 const { Platform } = __m["src/entities/platform.js"];
-const { Hero } = __m["src/entities/hero.js"];
+const { Hero, SHIELD_TIME, GUN_MAX, LASER_MAX } = __m["src/entities/hero.js"];
 const { Enemy } = __m["src/entities/enemy.js"];
 const { Boss, drawBossBar } = __m["src/entities/boss.js"];
 const { Projectiles } = __m["src/entities/projectiles.js"];
@@ -3633,6 +3638,7 @@ class Level {
     this.hero = new Hero(this.start.x, this.start.y, this.difficulty.maxHp, run.powers || []);
     if (ch.powers) for (const id of Object.keys(POWERS)) this.hero.powers.add(id);
     if (run.slot && this.hero.slotList().includes(run.slot)) this.hero.slot = run.slot;
+    this.hero.ammo = run.ammo || 0; this.hero.charges = run.charges || 0; this.hero.reg = run.reg || null;
     this.respawnAt = { ...this.start };
     this.camera.snap(this.hero, this.map.pxW, this.map.pxH);
   }
@@ -3712,11 +3718,15 @@ class Level {
   }
   giveLife(x, y) { if (this.run.lives < 9) this.run.lives++; this.audio.sfx('1up'); this.popups.add(x, y - 8, '1UP', '#37d46a'); }
 
-  // A picked-up weapon is equipped right away, unless an ability power is selected (don't switch it off behind the player's back).
+  // A picked-up regular weapon becomes the active one if you had none (or it was empty); otherwise the weapon key (V) switches.
   autoEquip(weapon, x, y) {
     const h = this.hero;
-    if (h.slot === 'base' || h.slot === weapon || h.weapon) h.setSlot(weapon, this);
-    else this.popups.add(x, y - 8, weapon.toUpperCase() + ' READY (Q/E)', '#ffd84a');
+    if (!h.regList().includes(h.reg) || h.reg === weapon) h.reg = weapon;
+    else this.popups.add(x, y - 8, weapon.toUpperCase() + ' READY (V)', '#ffd84a');
+  }
+  topUp(h, key, add, max, label, x, y) {
+    const was = h[key]; h[key] = Math.min(max, h[key] + add);
+    if (h[key] === max && was === max) this.popups.add(x, y - 8, 'MAX', '#ffd84a'); else if (h[key] === max) this.popups.add(x, y - 8, label + ' MAX', '#ffd84a');
   }
 
   collect(p) {
@@ -3725,9 +3735,9 @@ class Level {
       case 'coin': this.collectCoin(p.x, p.y); break;
       case 'star': h.star = 600; this.audio.sfx('powerup'); this.addScore(500, cx, cy); break;
       case 'oneup': this.giveLife(cx, cy); this.addScore(1000, cx, cy - 8); break;
-      case 'shield': h.shield = 8; this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
-      case 'gun': h.ammo = Math.min(99, h.ammo + 20); this.autoEquip('gun', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
-      case 'laser': h.charges = Math.min(20, h.charges + 5); this.autoEquip('laser', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'shield': h.shield = SHIELD_TIME; this.popups.add(cx, cy - 8, 'SHIELD 15S', '#7af0ff'); this.audio.sfx('powerup'); this.addScore(300, cx, cy); break;
+      case 'gun': this.topUp(h, 'ammo', 12, GUN_MAX, 'AMMO', cx, cy); this.autoEquip('gun', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
+      case 'laser': this.topUp(h, 'charges', 3, LASER_MAX, 'LASER', cx, cy); this.autoEquip('laser', cx, cy); this.audio.sfx('powerup'); this.addScore(200, cx, cy); break;
       case 'power': { const id = this.data.power; h.powers.add(id); h.equip(id, this); this.newPower = id; if (this.run.powers && !this.run.powers.includes(id)) this.run.powers.push(id); this.audio.sfx('powerup'); this.addScore(1000, cx, cy); this.clearLevel(); break; }
       case 'apple': h.hp = Math.min(h.maxHp, h.hp + 2); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+2 HP', '#ff7a7a'); break;
       case 'pizza': h.hp = Math.min(h.maxHp, h.hp + 4); this.audio.sfx('eat'); this.addScore(100, cx, cy); this.popups.add(cx, cy - 8, '+4 HP', '#ff7a7a'); break;
@@ -3780,7 +3790,7 @@ class Level {
     for (const e of this.enemies) {
       if (e.dead || !e.awake) continue;
       if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, e)) continue;
-      if (h.shield > 0) {                                           // an active shield wrecks anything it touches (the shield stays up)
+      if (h.shield > 0) {                                           // an active shield wrecks anything it touches (the shield stays up until its timer ends)
         if (e.elite) { e.hit(3, this); h.vx = -h.facing * 1.5; h.vy = -1.8; } else this.killEnemy(e);
         this.particles.emit(e.cx, e.cy, 8, { speed: 2.4, color: ['#cffaff', '#7af0ff', '#fff'], life: 16 });
         continue;
@@ -4322,16 +4332,16 @@ const SEGMENTS = {
     c.flat(n, items);
   },
   blocks(c, g) {
-    const contents = ['coin', 'coin', 'apple', g.rng.pick(['gun', 'shield', 'laser'])];
+    const contents = ['coin', 'coin', 'apple', g.rng.pick(['gun', 'shield', 'laser', 'coin', 'coin', 'apple'])];
     c.flat(8); contents.forEach((ct, i) => c.block(1 + i, 3, ct));
   },
   spring(c, g) {
-    const reward = g.rng.pick(['a', 's', 'l', 'o']);
+    const reward = g.rng.pick(['a', 'o', 'o', 's']);
     c.flat(10, [['S', 3]]); c.plank(5, 4, 5, true); c.coins(5, 5, 4); c.b.set(c.mark + 6, c.top - 1 - 5, reward === 'o' ? 'o' : reward);
   },
   crossing(c, g) { c.flat(3); c.crossing(14); c.flat(3); },
   supply(c, g) {
-    const item = g.rng.pick(['g', 's', 'a', 'l', 'a']);
+    const item = g.rng.pick(['a', 'a', 'a', 'g', 's', 'l']);
     c.flat(7, [[item, 3], ['o', 2], ['o', 4]]);
   },
   checkpoint(c, g) { c.flat(6, [['C', 2]]); },
@@ -4348,10 +4358,10 @@ function topUpEnemies(b, g, target, minCol, maxCol) {
   const placed = [];
   for (const c of cols) {
     if (have >= target) break;
-    if (placed.some((p) => Math.abs(p - c) < 5)) continue;
+    if (placed.some((p) => Math.abs(p - c) < 4)) continue;
     const fr = floorRow(c); if (fr < 3) continue;
     let ok = true;
-    for (let k = -5; k <= 5 && ok; k++) if (floorRow(c + k) !== fr) ok = false;                 // flat, no pits/slopes/steps nearby
+    for (let k = -4; k <= 4 && ok; k++) if (floorRow(c + k) !== fr) ok = false;                 // flat, no pits/slopes/steps nearby
     for (let k = -3; k <= 3 && ok; k++) for (let r = fr - 3; r < fr && ok; r++) if (grid[r][c + k] !== '.') ok = false;   // nothing else standing there
     if (!ok) continue;
     grid[fr - 1][c] = g.rng.pick(g.prof.ground.slice(0, Math.min(g.prof.ground.length, 2 + Math.round(g.d * (g.prof.ground.length - 1)))));
@@ -4360,7 +4370,7 @@ function topUpEnemies(b, g, target, minCol, maxCol) {
 }
 
 // Target enemy count for a campaign level (rises with the world and the level number, scaled for the longer levels).
-const enemyTarget = (world, index) => Math.round((6 + world * 1.6 + index * 3) * 2.2);
+const enemyTarget = (world, index) => Math.round((6 + world * 1.6 + index * 3) * 3.4);
 const levelLength = (world, index) => 250 + index * 95 + world * 14;
 
 // Appends segments to a Cursor until it reaches `length` columns. Shared by composed levels and the long hand-authored world 1 levels.
@@ -4372,7 +4382,7 @@ function fillSegments(c, g, length, state = { lastCp: c.x, lastSupply: c.x, last
   while (c.x < length) {
     let kind;
     if (c.x - state.lastCp > 38) { kind = 'checkpoint'; state.lastCp = c.x; }
-    else if (c.x - state.lastSupply > 34) { kind = 'supply'; state.lastSupply = c.x; }
+    else if (c.x - state.lastSupply > 70) { kind = 'supply'; state.lastSupply = c.x; }
     else {
       kind = pickWeighted(g.rng, weights);
       if (kind === state.lastKind && ['crossing', 'spring', 'blocks'].includes(kind)) kind = 'run';
@@ -4410,13 +4420,13 @@ function composeOnce(world, index, seedOffset) {
   return b.build({ id: world + '-' + (index + 1), name: info.name, world, theme: info.theme, par: Math.round(c.x * 0.3), music: MUSIC_BY_WORLD[world], physics: prof.physics });
 }
 
-return { PROFILES, pickWeighted, SEGMENTS, enemyTarget, levelLength, fillSegments, composeLevel };
+return { PROFILES, pickWeighted, SEGMENTS, topUpEnemies, enemyTarget, levelLength, fillSegments, composeLevel };
 })();
 // ---- src/levels/world1.js
 __m["src/levels/world1.js"] = (function () {
 // World 1: MEADOW LAND. Gentle introduction; 1-3 is the hard one; 1-4 is the Slime King arena.
 const { LevelBuilder, Cursor } = __m["src/levels/builder.js"];
-const { fillSegments, PROFILES } = __m["src/levels/generator.js"];
+const { fillSegments, topUpEnemies, enemyTarget, PROFILES } = __m["src/levels/generator.js"];
 const { RNG } = __m["src/engine/rng.js"];
 const { levelInfo } = __m["src/data/worlds.js"];
 
@@ -4426,6 +4436,7 @@ const meta = (id, extra = {}) => { const i = levelInfo(id); return { id, name: i
 function more(c, index, extra) {
   const g = { rng: new RNG(1001 + index * 77), prof: PROFILES[1], d: [0.0, 0.12, 0.28][index], index, world: 1 };
   fillSegments(c, g, c.x + extra);
+  topUpEnemies(c.b, g, enemyTarget(1, index), 16, c.x - 24);
 }
 
 // 1-1  SUNNY MEADOW: teach moving, jumping, stomping, coins, blocks, a hill
@@ -4474,13 +4485,13 @@ function l12() {
   c.pit(3, [['o', 0, 2], ['o', 1, 3], ['o', 2, 2]]);
   c.flat(7, [['e', 2], ['b', 5, 4]]);
   c.hill(2, 3, [['k', 2], ['o', 4, 3], ['o', 5, 3], ['o', 6, 3]]);
-  c.flat(5, [['l', 2]]);
+  c.flat(5, [['o', 2]]);
   c.crossing(14);
   c.flat(8, [['e', 3], ['t', 6]]);
   c.step(2).flat(8, [['k', 3], ['o', 1, 2], ['o', 2, 2]]);
   c.drop(2).flat(4, [['b', 2, 3]]);
   c.pit(3);
-  c.flat(10, [['C', 1], ['e', 4], ['r', 8], ['s', 3]]);
+  c.flat(10, [['C', 1], ['e', 4], ['r', 8], ['o', 3]]);
   c.hill(2, 2, [['o', 3, 3], ['o', 4, 3]]);
   c.flat(8, [['e', 3], ['b', 5, 4], ['z', 6]]);
   c.pit(3);
@@ -4504,9 +4515,9 @@ function l13() {
   c.flat(7, [['e', 2], ['e', 5]]);
   c.step(2).flat(3).spikes(2).flat(4, [['k', 2]]);
   c.plank(1, 2, 3).coins(1, 3, 3);
-  c.drop(2).flat(7, [['b', 3, 3], ['b', 5, 4], ['s', 6]]);
+  c.drop(2).flat(7, [['b', 3, 3], ['b', 5, 4], ['o', 6]]);
   c.pit(3, [['o', 1, 2]]);
-  c.flat(8, [['l', 2], ['r', 6]]);
+  c.flat(8, [['o', 2], ['r', 6]]);
   c.hill(3, 1, [['t', 8], ['o', 4, 5], ['1', 5, 5]]);
   c.text(0, 7, 'LOOK UP HIGH FOR A SECRET');
   c.flat(6, [['C', 1], ['a', 4]]);
@@ -4605,7 +4616,8 @@ __m["src/ui/hud.js"] = (function () {
 const { W } = __m["src/config.js"];
 const { drawText } = __m["src/engine/font.js"];
 const { ICON, drawSprite } = __m["src/gfx/sprites.js"];
-const { ITEM_ART, COIN_ICON } = __m["src/gfx/art.js"];
+const { ITEM_ART, COIN_ICON, SHIELD_RING } = __m["src/gfx/art.js"];
+const { GUN_MAX, LASER_MAX } = __m["src/entities/hero.js"];
 const { drawBossBar } = __m["src/entities/boss.js"];
 const { POWERS } = __m["src/data/powers.js"];
 
@@ -4630,19 +4642,20 @@ function drawHUD(ctx, lv) {
 
   // row 3: shield pips + weapon/ammo  |  lives
   let x = 6;
-  if (h.shield > 0) {
-    for (let i = 0; i < 8; i++) { ctx.fillStyle = SH; ctx.fillRect(x + i * 6, 29, 5, 7); ctx.fillStyle = i < h.shield ? '#7af0ff' : '#3a3a58'; ctx.fillRect(x + i * 6 + 1, 30, 3, 5); }
-    x += 8 * 6 + 4;
+  if (h.shield > 0) {                                       // timed shield: bar drains over 15 seconds
+    ctx.drawImage(SHIELD_RING, x - 2, 24, 16, 16);
+    ctx.fillStyle = SH; ctx.fillRect(x + 15, 29, 32, 7); ctx.fillStyle = '#3a3a58'; ctx.fillRect(x + 16, 30, 30, 5);
+    ctx.fillStyle = h.shield < 180 && lv.frames % 8 < 4 ? '#ffffff' : '#7af0ff'; ctx.fillRect(x + 16, 30, Math.ceil(30 * h.shield / 900), 5);
+    x += 52;
   }
-  if (h.weapon === 'gun') { ctx.drawImage(ITEM_ART.gun.r, x, 26); label(ctx, 'X' + String(h.ammo).padStart(2, '0'), x + 16, 29, '#ffd84a'); x += 46; }
-  else if (h.weapon === 'ice' || h.weapon === 'fire') {
-    const ice = h.weapon === 'ice'; ctx.drawImage(ITEM_ART[h.weapon].r, x, 26);
+  const reg = h.slot === 'ice' || h.slot === 'fire' ? null : h.weapon;
+  if (reg === 'gun') { ctx.drawImage(ITEM_ART.gun.r, x, 26); label(ctx, String(h.ammo).padStart(2, '0') + (h.ammo >= GUN_MAX ? '!' : ''), x + 16, 29, '#ffd84a'); x += 44; }
+  else if (reg === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, String(h.charges).padStart(2, '0') + (h.charges >= LASER_MAX ? '!' : ''), x + 16, 29, '#7af0ff'); x += 44; }
+  if (h.slot === 'ice' || h.slot === 'fire') {               // boss shot: energy bar
+    const ice = h.slot === 'ice'; ctx.drawImage(ITEM_ART[h.slot].r, x, 26);
     ctx.fillStyle = SH; ctx.fillRect(x + 16, 29, 32, 7); ctx.fillStyle = '#3a3a58'; ctx.fillRect(x + 17, 30, 30, 5);
     ctx.fillStyle = ice ? '#8ad8ff' : '#ff9a2e'; ctx.fillRect(x + 17, 30, Math.round(30 * h.energy / 100), 5); x += 52;
-  }
-  else if (h.weapon === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, 'X' + String(h.charges).padStart(2, '0'), x + 16, 29, '#7af0ff'); x += 46; }
-  if (POWERS[h.slot]) { label(ctx, POWERS[h.slot].name, x, 29, '#e0b8ff'); x += POWERS[h.slot].name.length * 6 + 6; }
-  else if (h.slot === 'base' && h.slotList().length > 1) { label(ctx, 'NO POWER', x, 29, '#6b5a80'); x += 54; }
+  } else if (POWERS[h.slot]) { label(ctx, POWERS[h.slot].name, x, 29, '#e0b8ff'); x += POWERS[h.slot].name.length * 6 + 6; }
   if (h.slotList().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
   label(ctx, 'LIVES X' + run.lives, W - 6, 29, '#fff', { align: 'right' });
   if (h.star > 0) {
@@ -4707,7 +4720,7 @@ class PlayState {
     if (inp.key('KeyB')) lv.showBoxes = !lv.showBoxes;
     const ids = Object.keys(POWERS);
     for (let i = 0; i < 8; i++) if (inp.key('Digit' + (i + 1))) { const id = ids[i]; const on = lv.hero.powers.has(id); on ? lv.hero.powers.delete(id) : lv.hero.powers.add(id); this.game.toast(POWERS[id].name + (on ? ' OFF' : ' ON')); }
-    if (inp.key('KeyP')) { for (const id of ids) lv.hero.powers.add(id); lv.hero.ammo = 99; lv.hero.charges = 20; this.game.toast('ALL POWERS + AMMO'); }
+    if (inp.key('KeyP')) { for (const id of ids) lv.hero.powers.add(id); lv.hero.ammo = 40; lv.hero.charges = 8; this.game.toast('ALL POWERS + AMMO'); }
     if (inp.key('KeyL') && lv.goal && lv.status === 'play') { lv.hero.x = lv.goal.x - 40; lv.hero.y = lv.goal.y; lv.hero.vy = 0; }
   }
   draw(ctx) {
@@ -5643,7 +5656,7 @@ class EndlessState {
     if (inp.pressed('pause')) { g.push('pause'); return; }
     if (g.debug) {
       if (inp.key('KeyI')) { lv.cheatInvincible = !lv.cheatInvincible; g.toast('INVINCIBLE ' + (lv.cheatInvincible ? 'ON' : 'OFF')); }
-      if (inp.key('KeyP')) { for (const id of Object.keys(POWERS)) lv.hero.powers.add(id); lv.hero.ammo = 99; g.toast('ALL POWERS'); }
+      if (inp.key('KeyP')) { for (const id of Object.keys(POWERS)) lv.hero.powers.add(id); lv.hero.ammo = 40; lv.hero.charges = 8; g.toast('ALL POWERS'); }
       if (inp.key('KeyB')) lv.showBoxes = !lv.showBoxes;
     }
     lv.update();

@@ -10,6 +10,7 @@ const LAYOUT = [
   ['rush',  'B',      ['rush', 'back'],    'right:88px;bottom:30px', 52],
   ['shoot', 'X',      ['shoot'],           'right:88px;bottom:96px', 52],
   ['next',  'Q/E',    ['next'],  'right:14px;bottom:130px', 40],
+  ['weapon', 'W',    ['weapon'], 'right:14px;bottom:182px', 40],
   ['pause', 'II',     ['pause'], 'right:14px;top:8px', 38],
 ];
 

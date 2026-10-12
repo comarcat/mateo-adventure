@@ -1,7 +1,8 @@
 import { W } from '../config.js';
 import { drawText } from '../engine/font.js';
 import { ICON, drawSprite } from '../gfx/sprites.js';
-import { ITEM_ART, COIN_ICON } from '../gfx/art.js';
+import { ITEM_ART, COIN_ICON, SHIELD_RING } from '../gfx/art.js';
+import { GUN_MAX, LASER_MAX } from '../entities/hero.js';
 import { drawBossBar } from '../entities/boss.js';
 import { POWERS } from '../data/powers.js';
 
@@ -26,19 +27,20 @@ export function drawHUD(ctx, lv) {
 
   // row 3: shield pips + weapon/ammo  |  lives
   let x = 6;
-  if (h.shield > 0) {
-    for (let i = 0; i < 8; i++) { ctx.fillStyle = SH; ctx.fillRect(x + i * 6, 29, 5, 7); ctx.fillStyle = i < h.shield ? '#7af0ff' : '#3a3a58'; ctx.fillRect(x + i * 6 + 1, 30, 3, 5); }
-    x += 8 * 6 + 4;
+  if (h.shield > 0) {                                       // timed shield: bar drains over 15 seconds
+    ctx.drawImage(SHIELD_RING, x - 2, 24, 16, 16);
+    ctx.fillStyle = SH; ctx.fillRect(x + 15, 29, 32, 7); ctx.fillStyle = '#3a3a58'; ctx.fillRect(x + 16, 30, 30, 5);
+    ctx.fillStyle = h.shield < 180 && lv.frames % 8 < 4 ? '#ffffff' : '#7af0ff'; ctx.fillRect(x + 16, 30, Math.ceil(30 * h.shield / 900), 5);
+    x += 52;
   }
-  if (h.weapon === 'gun') { ctx.drawImage(ITEM_ART.gun.r, x, 26); label(ctx, 'X' + String(h.ammo).padStart(2, '0'), x + 16, 29, '#ffd84a'); x += 46; }
-  else if (h.weapon === 'ice' || h.weapon === 'fire') {
-    const ice = h.weapon === 'ice'; ctx.drawImage(ITEM_ART[h.weapon].r, x, 26);
+  const reg = h.slot === 'ice' || h.slot === 'fire' ? null : h.weapon;
+  if (reg === 'gun') { ctx.drawImage(ITEM_ART.gun.r, x, 26); label(ctx, String(h.ammo).padStart(2, '0') + (h.ammo >= GUN_MAX ? '!' : ''), x + 16, 29, '#ffd84a'); x += 44; }
+  else if (reg === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, String(h.charges).padStart(2, '0') + (h.charges >= LASER_MAX ? '!' : ''), x + 16, 29, '#7af0ff'); x += 44; }
+  if (h.slot === 'ice' || h.slot === 'fire') {               // boss shot: energy bar
+    const ice = h.slot === 'ice'; ctx.drawImage(ITEM_ART[h.slot].r, x, 26);
     ctx.fillStyle = SH; ctx.fillRect(x + 16, 29, 32, 7); ctx.fillStyle = '#3a3a58'; ctx.fillRect(x + 17, 30, 30, 5);
     ctx.fillStyle = ice ? '#8ad8ff' : '#ff9a2e'; ctx.fillRect(x + 17, 30, Math.round(30 * h.energy / 100), 5); x += 52;
-  }
-  else if (h.weapon === 'laser') { ctx.drawImage(ITEM_ART.laser.r, x, 26); label(ctx, 'X' + String(h.charges).padStart(2, '0'), x + 16, 29, '#7af0ff'); x += 46; }
-  if (POWERS[h.slot]) { label(ctx, POWERS[h.slot].name, x, 29, '#e0b8ff'); x += POWERS[h.slot].name.length * 6 + 6; }
-  else if (h.slot === 'base' && h.slotList().length > 1) { label(ctx, 'NO POWER', x, 29, '#6b5a80'); x += 54; }
+  } else if (POWERS[h.slot]) { label(ctx, POWERS[h.slot].name, x, 29, '#e0b8ff'); x += POWERS[h.slot].name.length * 6 + 6; }
   if (h.slotList().length > 1) label(ctx, 'Q/E', x, 29, '#9aa0b8');
   label(ctx, 'LIVES X' + run.lives, W - 6, 29, '#fff', { align: 'right' });
   if (h.star > 0) {

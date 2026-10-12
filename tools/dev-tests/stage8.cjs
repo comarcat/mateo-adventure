@@ -30,9 +30,9 @@ const { chromium } = require('playwright');
       const hx0 = h.x; run(14, (f) => ({ shoot: f % 3 === 0, ...keys })); res['aim_' + name] = { dead: bat.dead, heroMoved: Math.round(h.x - hx0) };
     }
     // 4. shield kills enemies and stays up
-    L = fresh(); tp(L, 17, 11); L.hero.shield = 8; L.enemies.forEach((e) => { e.dead = true; }); const gloop = L.spawnEnemy('blob', L.hero.x + 24, 11 * 16 - 11); gloop.speed = 0;
+    L = fresh(); tp(L, 17, 11); L.hero.shield = 900; L.enemies.forEach((e) => { e.dead = true; }); const gloop = L.spawnEnemy('blob', L.hero.x + 24, 11 * 16 - 11); gloop.speed = 0;
     const sp = L.hero.shield; run(40, () => ({ right: true })); res.shield = { enemyDead: gloop.dead, shieldLeft: L.hero.shield, was: sp, hp: L.hero.hp };
-    const gk = fresh(); tp(gk, 17, 11); gk.hero.shield = 8; gk.enemies.forEach((e) => { e.dead = true; }); const big = gk.spawnEnemy('guard', gk.hero.x + 24, 11 * 16 - 14); big.speed = 0;
+    const gk = fresh(); tp(gk, 17, 11); gk.hero.shield = 900; gk.enemies.forEach((e) => { e.dead = true; }); const big = gk.spawnEnemy('guard', gk.hero.x + 24, 11 * 16 - 14); big.speed = 0;
     run(40, () => ({ right: true })); res.shieldKillsGuard = big.dead;
     // 5. platform: hero sunk 5px into a lift still lands on top
     L = fresh(); L.enemies.forEach((e) => { e.dead = true; }); const plat = L.platforms[0]; const h5 = L.hero; h5.respawn(plat.x + 10, plat.y - 14 + 5); h5.vy = 1; h5.grounded = false; h5.invuln = 0;

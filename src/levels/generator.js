@@ -82,23 +82,23 @@ export const SEGMENTS = {
     c.flat(n, items);
   },
   blocks(c, g) {
-    const contents = ['coin', 'coin', 'apple', g.rng.pick(['gun', 'shield', 'laser'])];
+    const contents = ['coin', 'coin', 'apple', g.rng.pick(['gun', 'shield', 'laser', 'coin', 'coin', 'apple'])];
     c.flat(8); contents.forEach((ct, i) => c.block(1 + i, 3, ct));
   },
   spring(c, g) {
-    const reward = g.rng.pick(['a', 's', 'l', 'o']);
+    const reward = g.rng.pick(['a', 'o', 'o', 's']);
     c.flat(10, [['S', 3]]); c.plank(5, 4, 5, true); c.coins(5, 5, 4); c.b.set(c.mark + 6, c.top - 1 - 5, reward === 'o' ? 'o' : reward);
   },
   crossing(c, g) { c.flat(3); c.crossing(14); c.flat(3); },
   supply(c, g) {
-    const item = g.rng.pick(['g', 's', 'a', 'l', 'a']);
+    const item = g.rng.pick(['a', 'a', 'a', 'g', 's', 'l']);
     c.flat(7, [[item, 3], ['o', 2], ['o', 4]]);
   },
   checkpoint(c, g) { c.flat(6, [['C', 2]]); },
 };
 
 // Guarantee a minimum number of enemies: top up on flat, hazard-free ground that is far from pits, the start and the goal.
-function topUpEnemies(b, g, target, minCol, maxCol) {
+export function topUpEnemies(b, g, target, minCol, maxCol) {
   const grid = b.g, h = b.h;
   const floorRow = (c) => { for (let r = 0; r < h; r++) { const ch = grid[r][c]; if (ch === '#' || ch === 'B' || ch === '/' || ch === '\\') return ch === '#' || ch === 'B' ? r : -2; } return -1; };
   const ENEMY = new Set(['e', 'k', 'b', 't', 'r', 'w', 'h', 'm', 'v']);
@@ -108,10 +108,10 @@ function topUpEnemies(b, g, target, minCol, maxCol) {
   const placed = [];
   for (const c of cols) {
     if (have >= target) break;
-    if (placed.some((p) => Math.abs(p - c) < 5)) continue;
+    if (placed.some((p) => Math.abs(p - c) < 4)) continue;
     const fr = floorRow(c); if (fr < 3) continue;
     let ok = true;
-    for (let k = -5; k <= 5 && ok; k++) if (floorRow(c + k) !== fr) ok = false;                 // flat, no pits/slopes/steps nearby
+    for (let k = -4; k <= 4 && ok; k++) if (floorRow(c + k) !== fr) ok = false;                 // flat, no pits/slopes/steps nearby
     for (let k = -3; k <= 3 && ok; k++) for (let r = fr - 3; r < fr && ok; r++) if (grid[r][c + k] !== '.') ok = false;   // nothing else standing there
     if (!ok) continue;
     grid[fr - 1][c] = g.rng.pick(g.prof.ground.slice(0, Math.min(g.prof.ground.length, 2 + Math.round(g.d * (g.prof.ground.length - 1)))));
@@ -120,7 +120,7 @@ function topUpEnemies(b, g, target, minCol, maxCol) {
 }
 
 // Target enemy count for a campaign level (rises with the world and the level number, scaled for the longer levels).
-export const enemyTarget = (world, index) => Math.round((6 + world * 1.6 + index * 3) * 2.2);
+export const enemyTarget = (world, index) => Math.round((6 + world * 1.6 + index * 3) * 3.4);
 export const levelLength = (world, index) => 250 + index * 95 + world * 14;
 
 // Appends segments to a Cursor until it reaches `length` columns. Shared by composed levels and the long hand-authored world 1 levels.
@@ -132,7 +132,7 @@ export function fillSegments(c, g, length, state = { lastCp: c.x, lastSupply: c.
   while (c.x < length) {
     let kind;
     if (c.x - state.lastCp > 38) { kind = 'checkpoint'; state.lastCp = c.x; }
-    else if (c.x - state.lastSupply > 34) { kind = 'supply'; state.lastSupply = c.x; }
+    else if (c.x - state.lastSupply > 70) { kind = 'supply'; state.lastSupply = c.x; }
     else {
       kind = pickWeighted(g.rng, weights);
       if (kind === state.lastKind && ['crossing', 'spring', 'blocks'].includes(kind)) kind = 'run';

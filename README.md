@@ -30,7 +30,8 @@ Everything is remappable in **Options -> Controls** (keyboard and gamepad, saved
 | Rush (hold) | C / Shift | B / RT | B |
 | Shoot | X | X / LT | X |
 | Aim while shooting | hold Up / Down (+ Left/Right for diagonals) | D-pad / stick | on-screen D-pad |
-| Previous / next power | Q / E | LB / RB | Q/E |
+| Previous / next boss power | Q / E | LB / RB | Q/E |
+| Switch gun / laser | V | Select | W |
 | Pause | Esc / P / Enter | Start | II |
 | Menus: confirm / back | Enter, Space, Z / Esc, X | A / B | A / B |
 | Fullscreen / mute / touch controls | F / M / T | | |
@@ -60,7 +61,7 @@ Powers are **switchable like Mega Man weapons**: press **Q / E** (LB / RB) to cy
 sweep in, new enemy types unlock every zone, an elite mini-boss ends each zone and a major boss closes every 4th zone.
 
 **Hero kit** - run, variable jump, coyote time + jump buffering, **Rush** (hold for a burst of speed; you plow through small enemies),
-stomp, slopes, springs, moving platforms. Power-ups: star (invulnerable), extra life, **shield (absorbs exactly 8 hits, fades as it breaks)**,
+stomp, slopes, springs, moving platforms. Power-ups: star (invulnerable), extra life, **shield (blocks all damage and kills enemies you touch, lasts 15 seconds)**,
 gun (ammo), laser (charges, pierces), food (heals). **Duck coins** (100 = extra life). Combo multiplier (x8), level/speed/no-damage bonuses.
 Difficulty: Easy (8 hearts, slower enemies) / Normal (6) / Hard (4, tougher and faster).
 
@@ -142,3 +143,8 @@ upload the zip, tick *This file will be played in the browser*, set the viewport
 ## Credits
 All code, art and music are original to this project. Art is procedurally painted in a 16-bit style (shaded colour ramps, dithering, parallax layers); fonts: an embedded 5x7 pixel font. No external assets.
 All code, art and music are original to this project. Fonts: an embedded 5x7 pixel font. No external assets.
+
+### Power system (Mega Man style)
+- **Boss powers** (earned from bosses): double jump, air dash, wall slide, glide, ground pound, ice shot, fire shot. One is active at a time; Q/E cycles them. Ice and fire replace your regular weapon while selected.
+- **Regular weapons** (found in levels): gun (cap 40 ammo) and laser (cap 8 charges). They are separate from boss powers, both can be held, **V** switches between them, and the ammo carries over to the next level.
+- Power-ups are rarer than before; the shield is timed (15 s) and drains in the HUD.

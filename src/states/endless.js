@@ -15,7 +15,7 @@ export class EndlessState {
     if (inp.pressed('pause')) { g.push('pause'); return; }
     if (g.debug) {
       if (inp.key('KeyI')) { lv.cheatInvincible = !lv.cheatInvincible; g.toast('INVINCIBLE ' + (lv.cheatInvincible ? 'ON' : 'OFF')); }
-      if (inp.key('KeyP')) { for (const id of Object.keys(POWERS)) lv.hero.powers.add(id); lv.hero.ammo = 99; g.toast('ALL POWERS'); }
+      if (inp.key('KeyP')) { for (const id of Object.keys(POWERS)) lv.hero.powers.add(id); lv.hero.ammo = 40; lv.hero.charges = 8; g.toast('ALL POWERS'); }
       if (inp.key('KeyB')) lv.showBoxes = !lv.showBoxes;
     }
     lv.update();

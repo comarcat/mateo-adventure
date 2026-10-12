@@ -1,6 +1,6 @@
 // World 1: MEADOW LAND. Gentle introduction; 1-3 is the hard one; 1-4 is the Slime King arena.
 import { LevelBuilder, Cursor } from './builder.js';
-import { fillSegments, PROFILES } from './generator.js';
+import { fillSegments, topUpEnemies, enemyTarget, PROFILES } from './generator.js';
 import { RNG } from '../engine/rng.js';
 import { levelInfo } from '../data/worlds.js';
 
@@ -10,6 +10,7 @@ const meta = (id, extra = {}) => { const i = levelInfo(id); return { id, name: i
 function more(c, index, extra) {
   const g = { rng: new RNG(1001 + index * 77), prof: PROFILES[1], d: [0.0, 0.12, 0.28][index], index, world: 1 };
   fillSegments(c, g, c.x + extra);
+  topUpEnemies(c.b, g, enemyTarget(1, index), 16, c.x - 24);
 }
 
 // 1-1  SUNNY MEADOW: teach moving, jumping, stomping, coins, blocks, a hill
@@ -58,13 +59,13 @@ function l12() {
   c.pit(3, [['o', 0, 2], ['o', 1, 3], ['o', 2, 2]]);
   c.flat(7, [['e', 2], ['b', 5, 4]]);
   c.hill(2, 3, [['k', 2], ['o', 4, 3], ['o', 5, 3], ['o', 6, 3]]);
-  c.flat(5, [['l', 2]]);
+  c.flat(5, [['o', 2]]);
   c.crossing(14);
   c.flat(8, [['e', 3], ['t', 6]]);
   c.step(2).flat(8, [['k', 3], ['o', 1, 2], ['o', 2, 2]]);
   c.drop(2).flat(4, [['b', 2, 3]]);
   c.pit(3);
-  c.flat(10, [['C', 1], ['e', 4], ['r', 8], ['s', 3]]);
+  c.flat(10, [['C', 1], ['e', 4], ['r', 8], ['o', 3]]);
   c.hill(2, 2, [['o', 3, 3], ['o', 4, 3]]);
   c.flat(8, [['e', 3], ['b', 5, 4], ['z', 6]]);
   c.pit(3);
@@ -88,9 +89,9 @@ function l13() {
   c.flat(7, [['e', 2], ['e', 5]]);
   c.step(2).flat(3).spikes(2).flat(4, [['k', 2]]);
   c.plank(1, 2, 3).coins(1, 3, 3);
-  c.drop(2).flat(7, [['b', 3, 3], ['b', 5, 4], ['s', 6]]);
+  c.drop(2).flat(7, [['b', 3, 3], ['b', 5, 4], ['o', 6]]);
   c.pit(3, [['o', 1, 2]]);
-  c.flat(8, [['l', 2], ['r', 6]]);
+  c.flat(8, [['o', 2], ['r', 6]]);
   c.hill(3, 1, [['t', 8], ['o', 4, 5], ['1', 5, 5]]);
   c.text(0, 7, 'LOOK UP HIGH FOR A SECRET');
   c.flat(6, [['C', 1], ['a', 4]]);

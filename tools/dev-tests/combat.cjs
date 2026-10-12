@@ -23,7 +23,7 @@ const { chromium } = require('playwright');
     L.enemies.forEach(e => e.dead = e === b2 ? false : true); b2.dead = false; b2.speed = 0; tp(16, 11); run(2); L.hero.meter = 100;
     run(60, () => ({ right: true, rush: true })); out.rush = { dead: b2.dead, hp: L.hero.hp };
     // 3. shield absorbs exactly 8 hits
-    fresh(); L = lv(); tp(60, 11); L.hero.shield = 8; const hp0 = L.hero.hp; let hits = 0;
+    fresh(); L = lv(); tp(60, 11); L.hero.shield = 900; const hp0 = L.hero.hp; let hits = 0;
     for (let i = 0; i < 12; i++) { L.hero.invuln = 0; if (L.hero.hurt(1, 0, L)) hits++; if (L.hero.shield === 0 && L.hero.hp === hp0) {} }
     out.shield = { shieldLeft: L.hero.shield, hpLost: hp0 - L.hero.hp, hitsProcessed: hits };
     // 4. gun

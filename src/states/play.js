@@ -40,7 +40,7 @@ export class PlayState {
     if (inp.key('KeyB')) lv.showBoxes = !lv.showBoxes;
     const ids = Object.keys(POWERS);
     for (let i = 0; i < 8; i++) if (inp.key('Digit' + (i + 1))) { const id = ids[i]; const on = lv.hero.powers.has(id); on ? lv.hero.powers.delete(id) : lv.hero.powers.add(id); this.game.toast(POWERS[id].name + (on ? ' OFF' : ' ON')); }
-    if (inp.key('KeyP')) { for (const id of ids) lv.hero.powers.add(id); lv.hero.ammo = 99; lv.hero.charges = 20; this.game.toast('ALL POWERS + AMMO'); }
+    if (inp.key('KeyP')) { for (const id of ids) lv.hero.powers.add(id); lv.hero.ammo = 40; lv.hero.charges = 8; this.game.toast('ALL POWERS + AMMO'); }
     if (inp.key('KeyL') && lv.goal && lv.status === 'play') { lv.hero.x = lv.goal.x - 40; lv.hero.y = lv.goal.y; lv.hero.vy = 0; }
   }
   draw(ctx) {

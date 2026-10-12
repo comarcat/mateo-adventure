@@ -1,20 +1,20 @@
 // Unified input: keyboard + Gamepad API (standard mapping) -> abstract actions.
 // Menus and gameplay both read the same actions, so everything works on keyboard and pad.
-export const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'pause', 'confirm', 'back'];
+export const ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'weapon', 'pause', 'confirm', 'back'];
 // Actions that appear in the remapping screen (menu actions keep their fixed defaults).
-export const REMAPPABLE = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'pause'];
+export const REMAPPABLE = ['left', 'right', 'up', 'down', 'jump', 'shoot', 'rush', 'next', 'prev', 'weapon', 'pause'];
 
 export const DEFAULT_BINDINGS = {
   kb: {
     left: ['ArrowLeft', 'KeyA'], right: ['ArrowRight', 'KeyD'], up: ['ArrowUp', 'KeyW'], down: ['ArrowDown', 'KeyS'],
     jump: ['KeyZ', 'Space'], shoot: ['KeyX'], rush: ['KeyC', 'ShiftLeft', 'ShiftRight'],
-    next: ['KeyE'], prev: ['KeyQ'], pause: ['Escape', 'KeyP', 'Enter'],
+    next: ['KeyE'], prev: ['KeyQ'], weapon: ['KeyV'], pause: ['Escape', 'KeyP', 'Enter'],
     confirm: ['Enter', 'Space', 'KeyZ'], back: ['Escape', 'KeyX', 'Backspace'],
   },
   // Standard gamepad mapping: 0=A/Cross 1=B/Circle 2=X/Square 3=Y/Triangle 4=LB 5=RB 6=LT 7=RT 9=Start 12-15=dpad
   pad: {
     left: [14], right: [15], up: [12], down: [13],
-    jump: [0, 3], shoot: [2, 6], rush: [1, 7], next: [5], prev: [4], pause: [9],
+    jump: [0, 3], shoot: [2, 6], rush: [1, 7], next: [5], prev: [4], weapon: [8], pause: [9],
     confirm: [0], back: [1],
   },
 };
