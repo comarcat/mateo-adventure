@@ -13,7 +13,7 @@ import { Popups } from '../entities/popups.js';
 import { THEMES } from '../gfx/themes.js';
 import { bakeTileset } from '../gfx/tiles.js';
 import { makeBackground } from '../gfx/backgrounds.js';
-import { ITEM_ART, drawCoin } from '../gfx/art.js';
+import { ITEM_ART, PICKUP_ART, drawCoin } from '../gfx/art.js';
 import { drawSprite } from '../gfx/sprites.js';
 import { drawText } from '../engine/font.js';
 import { ENEMY_BY_CHAR } from '../data/enemies.js';
@@ -353,9 +353,9 @@ export class Level {
       p.t++;
       if (p.type === 'coin') { drawCoin(ctx, p.x, p.y, p.t); continue; }
       const bob = Math.round(Math.sin(p.t * 0.1) * 1.5);
-      const art = ITEM_ART[p.type];
+      const art = PICKUP_ART[p.type] || ITEM_ART[p.type], hd = !!PICKUP_ART[p.type];
       if (p.type === 'star' && p.t % 8 < 4) ctx.globalAlpha = 0.8;
-      ctx.drawImage(art.r, p.x - 1, p.y - 1 + bob);
+      ctx.drawImage(art.r, hd ? Math.round(p.x + 6 - art.w / 2) : p.x - 1, hd ? p.y + 13 - art.h + bob : p.y - 1 + bob);
       ctx.globalAlpha = 1;
     }
   }

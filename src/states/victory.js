@@ -22,7 +22,7 @@ export class VictoryState {
     drawText(ctx, 'VICTORY!', W / 2, 18 + bob, '#ffd84a', 4, { align: 'center', shadow: '#2a1b3d' });
     drawText(ctx, 'THE DARK KING IS DEFEATED', W / 2, 56, '#fff', 1, { align: 'center' });
     drawText(ctx, 'MATEO SAVED THE LAND!', W / 2, 68, '#ff9a2e', 1, { align: 'center' });
-    drawSprite(ctx, MATEO.run[Math.floor(this.t / 6) % 4], W / 2 - 8 + Math.sin(this.t * 0.05) * 60, 86, Math.cos(this.t * 0.05) > 0 ? 1 : -1);
+    drawSprite(ctx, MATEO.run[Math.floor(this.t / 6) % 4], W / 2 - 11 + Math.sin(this.t * 0.05) * 60, 102 - MATEO.stand.h, Math.cos(this.t * 0.05) > 0 ? 1 : -1);
     drawText(ctx, 'FINAL SCORE', W / 2, 114, '#d8dcec', 1, { align: 'center' });
     drawText(ctx, String(this.p.score).padStart(7, '0'), W / 2, 126, '#ffd84a', 2, { align: 'center', shadow: '#2a1b3d' });
     const n = Object.keys(POWERS).filter((k) => this.p.powers.includes(k)).length;

@@ -1,4 +1,5 @@
 import { enhance } from './paint.js';
+import { HD } from './sprites_hd.js';
 // Sprites are authored as pixel strings + a palette and baked to canvases once at startup.
 // Each baked sprite has right-facing (r) and left-facing (l) versions, plus white "hit flash" versions.
 
@@ -26,6 +27,21 @@ export function fromCanvas(c, lit = true) {
   const l = flip(c);
   return { w: c.width, h: c.height, r: c, l, rw: tint(c, '#fff'), lw: tint(l, '#fff') };
 }
+
+// ---- painted sprites (generated from the concept art by tools/art/extract.py; pixels stored as palette-indexed strings)
+const CH = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+export const hasHd = (name) => !!HD[name];
+export function hdCanvas(name) {
+  const [w, h, pal, rows] = HD[name]; const [c, g] = mk(w, h);
+  rows.forEach((row, y) => { for (let x = 0; x < w; x++) { if (row[x] === '.') continue; g.fillStyle = pal[CH.indexOf(row[x])]; g.fillRect(x, y, 1, 1); } });
+  return c;
+}
+// A squashed / stretched copy, anchored at the bottom centre (cheap extra animation frames)
+export function stretchCanvas(src, sx, sy) {
+  const w = Math.max(1, Math.round(src.width * sx)), h = Math.max(1, Math.round(src.height * sy)); const [c, g] = mk(w, h);
+  g.drawImage(src, 0, 0, src.width, src.height, 0, 0, w, h); return c;
+}
+export const hdSprite = (name) => fromCanvas(hdCanvas(name), false);
 
 export function bake(rows, pal) {
   const h = rows.length, w = rows[0].length;
@@ -75,6 +91,14 @@ export const MATEO = {};
 for (const [k, legs] of Object.entries(LEGS)) MATEO[k] = bake([...HEAD, ...legs], MATEO_PAL);
 MATEO.run = [MATEO.runA, MATEO.runB, MATEO.runC, MATEO.runB];
 MATEO.jump = MATEO.runA;
+// painted 16-bit poses replace the old pixel-string ones when present
+if (hasHd('hero_stand')) {
+  const P = (n) => hdSprite(n), stand = P('hero_stand'), run = P('hero_run');
+  const runUp = fromCanvas((() => { const [c, g] = mk(run.w, run.h + 1); g.drawImage(run.r, 0, 1); return c; })(), false);
+  MATEO.stand = stand; MATEO.jump = P('hero_jump'); MATEO.fall = P('hero_hurt'); MATEO.hurt = MATEO.fall;
+  MATEO.glide = P('hero_glide'); MATEO.djump = P('hero_djump'); MATEO.victory = P('hero_victory'); MATEO.fallAir = MATEO.jump;
+  MATEO.run = [run, stand, runUp, stand];
+}
 
 // ---------------------------------------------------------------- tiny HUD icons
 export const ICON = {

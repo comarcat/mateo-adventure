@@ -122,3 +122,14 @@ Hero: gun bullet, laser beam (fires in 8 directions), ice shard, fireball. Enemi
 - Keep the feet at the bottom edge of the canvas and centred, so the hitbox lines up.
 - Neutral colours for regular enemies (the game tints them per world).
 - If you want to draw at a higher resolution for the 16-bit look, use 2x the canvas sizes above (for example Mateo 32x32) and tell me. The hitboxes stay the same and I will scale the drawing in code.
+
+---
+
+## 9. Current painted sprites (generated from the concept sheets)
+
+The concept sheets are saved in `assets/reference/`. `python3 tools/art/extract.py` cuts every character out of them, shrinks it to its in-game size and writes:
+- `assets/sprites/<name>.png` — one editable transparent PNG per sprite (hero poses are 22 px wide with the hat centred; enemies about 14-27 px; bosses 30-50 px; items 12-22 px),
+- `src/gfx/sprites_hd.js` — the same pixels, which the game loads (no image loading, works from `file://`).
+
+To replace a sprite with hand-drawn art: overwrite its PNG in `assets/sprites/` (same file name, bottom edge on the feet), then run `python3 tools/art/extract.py --from-png` and commit.
+Extra animation frames (squash/stretch, flap, core glow, rage tint) are made by code from the single painted pose. Real extra frames can be added later.

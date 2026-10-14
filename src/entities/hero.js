@@ -282,7 +282,7 @@ export class Hero {
 
   sprite() {
     if (this.dead || this.hurtT > 0) return MATEO.fall;
-    if (!this.grounded) return this.vy < 0 ? MATEO.jump : MATEO.fall;
+    if (!this.grounded) { if (this.gliding && MATEO.glide) return MATEO.glide; if (MATEO.djump && this.vy < 0 && this.airJumps < 1 && this.vy > -3.2 && this.powers.has('doublejump') && this.slot === 'doublejump') return MATEO.djump; return this.vy < 0 ? MATEO.jump : (MATEO.fallAir || MATEO.fall); }
     if (Math.abs(this.vx) > 0.2) return MATEO.run[Math.floor(this.animT) % 4];
     return MATEO.stand;
   }
@@ -292,12 +292,12 @@ export class Hero {
     for (let i = 0; i < this.trail.length; i++) {
       const t = this.trail[i];
       ctx.globalAlpha = 0.15 + i * 0.08;
-      drawSprite(ctx, t.s, t.x - 3, t.y - 2, t.f, true);
+      drawSprite(ctx, t.s, t.x + this.w / 2 - t.s.w / 2, t.y + this.h - t.s.h, t.f, true);
     }
     ctx.globalAlpha = 1;
     if (this.invuln > 0 && !this.dead && this.invuln % 6 < 3 && this.star <= 0) return;   // blink when hurt
     const flash = (this.hurtT > 8) || (this.star > 0 && lv.frames % 4 < 2);
-    drawSprite(ctx, this.sprite(), this.x - 3, this.y - 2, this.facing, flash);
+    { const sp = this.sprite(); drawSprite(ctx, (lv.status === 'clear' && MATEO.victory && this.grounded) ? MATEO.victory : sp, this.cx - sp.w / 2, this.y + this.h - sp.h, this.facing, flash); }
     if (this.shield > 0 && !this.dead) {       // timed bubble
       if (this.shield > 180 || lv.frames % 8 < 5) {              // flickers during the last 3 seconds
         ctx.globalAlpha = 0.85;

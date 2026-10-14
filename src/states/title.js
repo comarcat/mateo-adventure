@@ -30,7 +30,7 @@ export class TitleState {
     drawText(ctx, 'MATEO', W / 2, 26 + bob, '#ffd84a', 5, { align: 'center', shadow: '#2a1b3d' });
     drawText(ctx, 'ADVENTURE', W / 2, 66 + bob, '#ff7a3a', 3, { align: 'center', shadow: '#2a1b3d' });
     const f = Math.floor(this.t / 8) % 4;
-    drawSprite(ctx, MATEO.run[f], ((this.t * 1.2) % (W + 40)) - 20, H - 48, 1);
+    { const s = MATEO.run[f]; drawSprite(ctx, s, ((this.t * 1.2) % (W + 40)) - 20, H - 32 - s.h, 1); }
     this.menu.draw(ctx, this.t);
     drawText(ctx, 'ARROWS + ENTER / PAD / TOUCH', W / 2, 212, '#2a1b3d', 1, { align: 'center' });
     drawText(ctx, 'V1.0', W - 6, 4, '#2a1b3d', 1, { align: 'right' });

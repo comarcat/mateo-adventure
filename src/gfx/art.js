@@ -1,5 +1,5 @@
 // Procedurally drawn art for enemies, pickups and coins. Original designs, no external assets.
-import { mk, fromCanvas } from './sprites.js';
+import { mk, fromCanvas, hasHd, hdCanvas, hdSprite, stretchCanvas } from './sprites.js';
 
 const OUT = '#2a1b3d';
 const R = (g, c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
@@ -183,7 +183,7 @@ export const ITEM_ART = {
 };
 
 // ------------------------------------------------------------------ DUCK coin (12x12) with spin frames
-const coinBase = (() => {
+const coinBase = hasHd('coin') ? hdCanvas('coin') : (() => {
   const [c, g] = mk(12, 12);
   ell(g, 6, 6, 6, 6, OUT); ell(g, 6, 6, 5, 5, '#ffcf2a'); ell(g, 6, 6, 3.6, 3.6, '#f0a818');
   R(g, '#fff2a0', 2, 3, 1, 3);
@@ -372,3 +372,31 @@ export const POWER_ORB = item((g) => {
 });
 
 ITEM_ART.power = POWER_ORB;
+
+// ====================================================================================================================
+// Painted 16-bit sprites (sprites_hd.js, generated from the concept art). Each falls back to the drawn version above if missing.
+// ====================================================================================================================
+const withFrames = (name, ...scales) => scales.map(([sx, sy]) => fromCanvas(sx === 1 && sy === 1 ? hdCanvas(name) : stretchCanvas(hdCanvas(name), sx, sy), false));
+const ENEMY_HD = {      // enemy: [hd sprite, frame-1 squash/stretch]
+  blob: ['gloopy', [1.08, 0.86]], spiky: ['pricklit', [1.06, 0.92]], bat: ['flutter', [0.86, 0.8]], pod: ['poppod', [0.92, 1.1]],
+  charger: ['rammo', [1.05, 0.93]], guard: ['clanky', [1.05, 0.95]], hopper: ['boing', [0.9, 1.14]], splitter: ['splotch', [1.08, 0.86]],
+};
+for (const [type, [name, sq]] of Object.entries(ENEMY_HD)) if (hasHd(name)) BASE_ART[type] = withFrames(name, [1, 1], sq);
+if (hasHd('swoopy')) BASE_ART.swooper = withFrames('swoopy', [1, 1], [0.86, 0.8]);
+
+const glowCore = (c) => {       // Magma Golem's weak point flares in frame 1
+  const g = c.getContext('2d'), img = g.getImageData(0, 0, c.width, c.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3] && d[i] > 170 && d[i + 1] > 50 && d[i + 1] < 210 && d[i + 2] < 100) { d[i] = 255; d[i + 1] = Math.min(255, d[i + 1] + 90); d[i + 2] = 120; }
+  g.putImageData(img, 0, 0); return c;
+};
+if (hasHd('slimeking')) {
+  BOSS_ART.slimeking = withFrames('slimeking', [1, 1], [1.1, 0.88], [0.9, 1.12]);
+  BOSS_ART.slimeking_rage = rageFrames(BOSS_ART.slimeking);
+}
+const BOSS_HD = { sandworm: 'sandworm', yeti: 'yeti', owlbear: 'owl', kraken: 'kraken', stormbird: 'stormbird', darkking: 'darkking' };
+for (const [id, name] of Object.entries(BOSS_HD)) if (hasHd(name)) BOSS_ART[id] = withFrames(name, [1, 1], id === 'owlbear' || id === 'stormbird' ? [1, 0.9] : [1, 1.04]);
+if (hasHd('golem')) BOSS_ART.magmagolem = [fromCanvas(hdCanvas('golem'), false), fromCanvas(glowCore(hdCanvas('golem')), false)];
+
+// in-world pickups (the HUD keeps the small drawn icons)
+export const PICKUP_ART = {};
+for (const [type, name] of Object.entries({ star: 'star', oneup: 'oneup', shield: 'shield', apple: 'apple', pizza: 'pizza', power: 'orb', gun: 'gun', laser: 'laser' })) if (hasHd(name)) PICKUP_ART[type] = hdSprite(name);

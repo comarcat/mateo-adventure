@@ -163,11 +163,11 @@ export class Enemy {
     const flash = this.flash > 0 || (this.state === 'wind' && this.t % 6 < 3);
     const face = this.def.ai === 'shoot' ? this.dir : this.dir;
     if (this.scale !== 1) {
-      const spr = frames[f], dw = 16 * this.scale, img = flash ? (face < 0 ? spr.lw : spr.rw) : (face < 0 ? spr.l : spr.r);
-      ctx.drawImage(img, Math.round(this.x - (dw - this.w) / 2 + ox), Math.round(this.y - (dw - this.h)), Math.round(dw), Math.round(dw));
-      if (this.hp < this.maxHp) { ctx.fillStyle = '#2a1b3d'; ctx.fillRect(Math.round(this.x), Math.round(this.y - dw + this.h - 5), this.w, 3); ctx.fillStyle = '#ff4a3a'; ctx.fillRect(Math.round(this.x) + 1, Math.round(this.y - dw + this.h - 4), Math.max(0, Math.round((this.w - 2) * this.hp / this.maxHp)), 1); }
-    } else drawSprite(ctx, frames[f], this.x - (16 - this.w) / 2 + ox, this.y - (16 - this.h), face, flash);
-    if (this.frozen > 0 && this.scale === 1) { ctx.globalAlpha = 0.8; drawSprite(ctx, iceOverlay(frames[f]), this.x - (16 - this.w) / 2, this.y - (16 - this.h), face, false); ctx.globalAlpha = 1; }
+      const spr = frames[f], dw = spr.w * this.scale, dh = spr.h * this.scale, img = flash ? (face < 0 ? spr.lw : spr.rw) : (face < 0 ? spr.l : spr.r);
+      ctx.drawImage(img, Math.round(this.x - (dw - this.w) / 2 + ox), Math.round(this.y - (dh - this.h)), Math.round(dw), Math.round(dh));
+      if (this.hp < this.maxHp) { ctx.fillStyle = '#2a1b3d'; ctx.fillRect(Math.round(this.x), Math.round(this.y - dh + this.h - 5), this.w, 3); ctx.fillStyle = '#ff4a3a'; ctx.fillRect(Math.round(this.x) + 1, Math.round(this.y - dh + this.h - 4), Math.max(0, Math.round((this.w - 2) * this.hp / this.maxHp)), 1); }
+    } else drawSprite(ctx, frames[f], this.x + (this.w - frames[f].w) / 2 + ox, this.y + this.h - frames[f].h, face, flash);
+    if (this.frozen > 0 && this.scale === 1) { ctx.globalAlpha = 0.8; drawSprite(ctx, iceOverlay(frames[f]), this.x + (this.w - frames[f].w) / 2, this.y + this.h - frames[f].h, face, false); ctx.globalAlpha = 1; }
     if (this.state === 'wind') { ctx.fillStyle = '#ff4a4a'; ctx.fillRect(Math.round(this.cx) - 1, Math.round(this.y) - 8, 2, 4); ctx.fillRect(Math.round(this.cx) - 1, Math.round(this.y) - 3, 2, 2); }
   }
 }

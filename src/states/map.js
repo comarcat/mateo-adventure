@@ -94,7 +94,7 @@ export class MapState {
     const f = this.moving ? MATEO.run[Math.floor(this.t / 6) % 4] : MATEO.stand;
     const dir = this.moving && this.moving.pts[Math.min(this.moving.seg + 1, this.moving.pts.length - 1)].x < this.pos.x ? -1 : 1;
     ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(Math.round(this.pos.x) - 5, Math.round(this.pos.y) + 4, 10, 3);
-    drawSprite(ctx, f, this.pos.x - 8, this.pos.y - 15 + (this.moving ? 0 : Math.round(Math.sin(this.t * 0.1) * 0.6)), dir);
+    drawSprite(ctx, f, this.pos.x - f.w / 2, this.pos.y + 1 - f.h + (this.moving ? 0 : Math.round(Math.sin(this.t * 0.1) * 0.6)), dir);
     this.drawHud(ctx);
   }
 
