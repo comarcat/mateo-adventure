@@ -65,13 +65,30 @@ export function moveXBy(b, map, d) {
   let blockTop = Infinity;
   for (let r = r0; r <= r1; r++) if (map.kind(c, r) === K.SOLID) blockTop = Math.min(blockTop, r * T);
   if (blockTop === Infinity) return;
+  // ledge assist: an airborne body that clips a ledge by a few px is lifted onto it instead of stopping dead
+  if (b.assist && !b.grounded) {
+    const rise = b.y + b.h - blockTop;
+    if (rise > 0 && rise <= LEDGE_ASSIST && !tileInRect(map, b.x, blockTop - b.h, b.w, b.h, K.SOLID)) { b.y = blockTop - b.h; return; }
+  }
   if (b.onSlope && b.y + b.h - blockTop <= 8) { b.y = blockTop - b.h; return; }   // walk up onto plateau
   b.x = dir > 0 ? c * T - b.w : (c + 1) * T;
   b.vx = 0; b.wall = dir;
 }
 
 // Apply b.vy and resolve vertically. Sets grounded/onSlope/onOneWay/ceil.
+const CORNER = 4, LEDGE_ASSIST = 4;       // px of forgiveness (platformer feel: corner correction)
+// A rising body that clips the underside of a block by <= CORNER px is slid sideways past it so the jump isn't lost.
+function cornerNudge(b, map) {
+  const ny = b.y + b.vy, r = Math.floor(ny / T), c0 = Math.floor(b.x / T), c1 = Math.floor((b.x + b.w - 0.001) / T);
+  const hit = []; for (let c = c0; c <= c1; c++) if (map.kind(c, r) === K.SOLID) hit.push(c);
+  if (hit.length !== 1) return;
+  let nx = null;
+  if (hit[0] === c0 && (c0 + 1) * T - b.x <= CORNER) nx = (c0 + 1) * T;
+  else if (hit[0] === c1 && c1 !== c0 && b.x + b.w - c1 * T <= CORNER) nx = c1 * T - b.w;
+  if (nx !== null && !tileInRect(map, nx, ny, b.w, b.h, K.SOLID)) b.x = nx;
+}
 export function moveY(b, map) {
+  if (b.assist && b.vy < 0) cornerNudge(b, map);
   const wasG = b.grounded;
   const prevBottom = b.y + b.h;
   b.y += b.vy;

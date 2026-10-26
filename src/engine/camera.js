@@ -1,8 +1,12 @@
 import { W, H } from '../config.js';
 
 export class Camera {
-  constructor() { this.look = 20; this.x = 0; this.y = 0; this.shakeT = 0; this.shakeMag = 0; this.ox = 0; this.oy = 0; }
-  shake(mag = 3, frames = 12) { if (mag >= this.shakeMag || this.shakeT <= 0) { this.shakeMag = mag; this.shakeT = frames; } }
+  constructor() { this.look = 20; this.x = 0; this.y = 0; this.shakeT = 0; this.shakeDur = 1; this.shakeMag = 0; this.shakePh = 0; this.fx = 1; this.ox = 0; this.oy = 0; }
+  // Decaying shake: the strongest recent hit wins; amplitude fades linearly and moves smoothly (no per-frame random buzz).
+  shake(mag = 3, frames = 12) {
+    const m = mag * this.fx, left = this.shakeT > 0 ? this.shakeMag * this.shakeT / this.shakeDur : 0;
+    if (m >= left) { this.shakeMag = m; this.shakeT = frames; this.shakeDur = frames; }
+  }
   snap(target, mapPxW, mapPxH) {
     this.look = (target.facing || 1) * 20;
     this.x = this._tx(target); this.y = this._ty(target);
@@ -27,7 +31,7 @@ export class Camera {
   }
   _apply() {
     let sx = 0, sy = 0;
-    if (this.shakeT > 0) { this.shakeT--; sx = (Math.random() * 2 - 1) * this.shakeMag; sy = (Math.random() * 2 - 1) * this.shakeMag; if (this.shakeT <= 0) this.shakeMag = 0; }
+    if (this.shakeT > 0) { const amp = this.shakeMag * this.shakeT / this.shakeDur; this.shakePh += 1; sx = amp * Math.sin(this.shakePh * 1.9); sy = amp * Math.sin(this.shakePh * 2.7 + 1.3); if (--this.shakeT <= 0) this.shakeMag = 0; }
     this.ox = Math.round(this.x + sx); this.oy = Math.round(this.y + sy);
   }
 }

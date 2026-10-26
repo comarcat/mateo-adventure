@@ -8,7 +8,8 @@ const ids = process.argv.slice(3);
   const errs = []; p.on('pageerror', e => errs.push('PAGEERR ' + e.message));
   await p.goto((process.env.BASE || 'http://localhost:8123') + '/index.html?debug'); await p.waitForTimeout(400);
   for (const id of ids) {
-    const r = await p.evaluate(({ id, TRACE }) => {
+    const r = await p.evaluate(({ id, TRACE, FALL }) => {
+      if (FALL) game.cheats.fall = +FALL;
       window.dd = []; game.run = game.campaignRun(); game.change('play', { level: id, campaign: true });
       const L = game.top.level; L.cheatInvincible = true;
       let f = 0, stuckX = 0, stuckT = 0, deaths = 0, lastLives = L.run.lives;
@@ -50,7 +51,7 @@ const ids = process.argv.slice(3);
       }
       const lv = game.top.level;
       return { id, status, frames: f, deaths, x: lv ? Math.round(lv.hero.x / 16) : null, lives: lv ? lv.run.lives : null, mapW: lv ? lv.map.w : null, deathsAt: window.dd, tr: window.tr };
-    }, { id, TRACE: process.env.TRACE || '' });
+    }, { id, TRACE: process.env.TRACE || '', FALL: process.env.FALL || '' });
     console.log(JSON.stringify(r));
   }
   console.log(errs.join('\n') || 'no errors'); await b.close();

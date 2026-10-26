@@ -18,6 +18,7 @@ export class OptionsState {
       { label: () => 'DIFFICULTY  < ' + g.difficulty.label + ' >', action: () => cycle(1), onLeft: () => cycle(-1), onRight: () => cycle(1) },
       vol('master', 'MASTER'), vol('music', 'MUSIC '), vol('sfx', 'SFX   '),
       { label: () => 'SOUND  < ' + (st.muted ? 'MUTED' : 'ON') + ' >', action: () => g.audio.toggleMute(), onLeft: () => g.audio.toggleMute(), onRight: () => g.audio.toggleMute() },
+      { label: () => 'REDUCE SHAKE/FLASH < ' + (st.reduceFx ? 'ON' : 'OFF') + ' >', action: () => { st.reduceFx = !st.reduceFx; g.save.flush(); }, onLeft: () => { st.reduceFx = !st.reduceFx; g.save.flush(); }, onRight: () => { st.reduceFx = !st.reduceFx; g.save.flush(); } },
       { label: 'CONTROLS', action: () => g.push('controls') },
       { label: () => (this.erase ? 'REALLY ERASE? PRESS AGAIN' : 'ERASE SAVE DATA'), action: () => { if (!this.erase) { this.erase = true; return; } g.save.reset(); g.input.setBindings(null); g.toast('SAVE ERASED'); this.erase = false; } },
       { label: 'BACK', action: () => g.pop() },

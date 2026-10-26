@@ -72,3 +72,13 @@ Suggestion: keep a `.bak` copy of the last good save, validate fields on load, a
 3. Power gating: optional areas that need earlier powers, plus the validator check.
 4. Prompts from bindings; SFX pitch variation; save backup.
 5. Art: shared palette, real animation frames, asset manifest with provenance.
+
+---
+
+## Update: feel pass done (findings 1-3)
+
+- **Fall gravity x1.3** (default): measured full-jump apex unchanged (63 px), airtime about 4% shorter, all 24 levels and 8 bosses still clear with the bots. Debug menu (F2 with `?debug`) has "FALL GRAVITY" x1.0 / x1.3 / x1.6 to compare.
+- **Corner correction** (up to 4 px sideways when a rising jump clips a block corner) and **ledge assist** (airborne, clipping a ledge by up to 4 px lifts onto it). Tested: without the assist the jump stops under the block (top y=128), with it the hero passes (top y=99).
+- **Shake** now decays smoothly (no per-frame random); **hit-stop** (2-5 frames on stomps, rush hits, damage; 14 frames on a boss kill) keeps a jump press buffered; **squash on landing / stretch on take-off** for Mateo.
+- **Options: "REDUCE SHAKE/FLASH"** scales shake to 30%, disables hit-stop and slows the star flash. Saved with the settings.
+- Not done: apex hang (decide after playtesting). Tests: `tools/dev-tests/stage10.cjs`.

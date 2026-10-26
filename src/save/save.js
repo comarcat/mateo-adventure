@@ -6,7 +6,7 @@ const VERSION = 1;
 
 const defaults = () => ({
   version: VERSION,
-  settings: { master: 0.8, music: 0.7, sfx: 0.8, muted: false, difficulty: 'normal', bindings: null },
+  settings: { master: 0.8, music: 0.7, sfx: 0.8, muted: false, difficulty: 'normal', bindings: null, reduceFx: false },
   progress: { started: false, lives: 3, score: 0, coins: 0, cleared: {}, powers: [], world: 1, node: 0, time: 0 },
   scores: { classic: [], endless: [] },
 });

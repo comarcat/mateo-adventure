@@ -13,11 +13,12 @@ export class DebugState {
     this.ids = ids; this.sel = 1;
     const tog = (key, label) => ({ label: () => label + ' < ' + (c[key] ? 'ON' : 'OFF') + ' >', action: () => { c[key] = !c[key]; }, onLeft: () => { c[key] = !c[key]; }, onRight: () => { c[key] = !c[key]; } });
     const step = (d) => { this.sel = (this.sel + d + ids.length) % ids.length; };
-    const lives = [0, 9, 99];
+    const lives = [0, 9, 99], FALLS = [1, 1.3, 1.6];
     this.menu = new Menu([
       { label: () => 'LEVEL  < ' + ids[this.sel] + ' >', action: () => this.launch(ids[this.sel]), onLeft: () => step(-1), onRight: () => step(1) },
       { label: 'PLAY ENDLESS (SEED DEBUG1)', action: () => { g.pop(); g.run = this.run(true); g.change('endless', { seed: 'DEBUG1' }); } },
       tog('invincible', 'INVINCIBLE'), tog('rush', 'INFINITE RUSH'), tog('powers', 'ALL POWERS'), tog('boxes', 'HITBOXES'),
+      { label: () => 'FALL GRAVITY < X' + (c.fall || 1.3).toFixed(1) + ' >', action: () => { c.fall = FALLS[(FALLS.indexOf(c.fall || 1.3) + 1) % FALLS.length]; }, onLeft: () => { c.fall = FALLS[(FALLS.indexOf(c.fall || 1.3) + FALLS.length - 1) % FALLS.length]; }, onRight: () => { c.fall = FALLS[(FALLS.indexOf(c.fall || 1.3) + 1) % FALLS.length]; } },
       { label: () => 'START LIVES < ' + (c.lives || 3) + ' >', action: () => { c.lives = lives[(lives.indexOf(c.lives) + 1) % 3]; }, onLeft: () => { c.lives = lives[(lives.indexOf(c.lives) + 2) % 3]; }, onRight: () => { c.lives = lives[(lives.indexOf(c.lives) + 1) % 3]; } },
       { label: 'UNLOCK WHOLE CAMPAIGN', action: () => { for (const id of ids) if (id !== 'test') g.save.markCleared(id, 1000, 60); g.save.progress.powers = Object.keys(POWERS); g.save.progress.started = true; g.save.flush(); g.toast('ALL LEVELS CLEARED + POWERS'); } },
       { label: 'CLOSE', action: () => g.pop() },

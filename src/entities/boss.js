@@ -333,7 +333,7 @@ export class Boss {
     }
     this.hp -= dmg; this.invuln = 40; this.flash = 12; lv.audio.sfx('bosshit'); lv.camera.shake(3, 8);
     lv.particles.emit(this.cx, this.cy, 10, { speed: 2, color: ['#fff', '#ffd84a'], life: 18 });
-    if (this.hp <= 0) { this.die(lv); return true; }
+    if (this.hp <= 0) { lv.hitStop(14); this.die(lv); return true; }
     const frac = this.hp / this.maxHp;
     const target = this.def.phases.filter((p, i) => i > 0 && frac <= p).length;
     if (target > this.phase) { this.phase = target; this.def.onPhase && this.def.onPhase(this, lv, target); }

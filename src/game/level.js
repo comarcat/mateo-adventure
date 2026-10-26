@@ -40,6 +40,8 @@ export class Level {
     this.assets = assetsFor(data.theme);
     this.map = new TileMap(data.tiles);
     this.camera = new Camera();
+    this.reduceFx = !!(game.save && game.save.settings.reduceFx); this.camera.fx = this.reduceFx ? 0.3 : 1;
+    this.fallMul = (game.cheats && game.cheats.fall) || 1.3;     // heavier fall than rise (default x1.3; debug menu can change it) this.freeze = 0;
     this.particles = new Particles();
     this.projectiles = new Projectiles();
     this.popups = new Popups();
@@ -164,7 +166,15 @@ export class Level {
   }
 
   // ------------------------------------------------------------------ simulation
+  // Hit-stop: freeze the simulation for a few frames on a big impact (skipped with 'reduce shake & flashing').
+  hitStop(n) { if (!this.reduceFx) this.freeze = Math.max(this.freeze, n); }
+
   update() {
+    if (this.freeze > 0) {                       // frozen: keep the screen shake running and remember a jump press so it isn't lost
+      this.freeze--; this.camera._apply();
+      if (this.input.pressed('jump') && !this.hero.dead) this.hero.jumpBuf = 6;
+      return;
+    }
     this.frames++;
     for (const p of this.platforms) p.update();
     const hero = this.hero;
@@ -215,13 +225,13 @@ export class Level {
       if (e.frozen > 0 && !h.smashing) { if (h.vy > 0.3 && (h.y + h.h) - e.y <= 10) { e.hit(2, this); h.vy = -3.6; h.noCut = true; } continue; }
       const stomping = h.vy > 0.3 && (h.y + h.h) - e.y <= 10 && !h.rushing;
       if (h.smashing && (e.def.small || h.star > 0)) {            // rush / star plows through small enemies
-        this.killEnemy(e);
+        this.killEnemy(e); this.hitStop(2);
         this.particles.emit(e.cx, e.cy, 6, { angle: h.facing > 0 ? 0 : Math.PI, spread: 0.8, speed: 3, color: ['#fff', '#ffd84a'], life: 14 });
       } else if (h.rushing) {                                       // rush bashes bigger enemies, then stops
         e.hit(2, this); h.rushing = false; h.rushCd = 30; h.vx = -h.facing * 1.8; h.vy = -2;
         this.camera.shake(2, 6);
       } else if (stomping && e.def.stomp) {
-        e.hit(h.pounding ? 3 : 1, this);
+        e.hit(h.pounding ? 3 : 1, this); this.hitStop(e.dead ? 3 : 2);
         h.vy = this.input.down('jump') ? -5.2 : -3.6; h.noCut = true; h.grounded = false; h.airJumps = 1;
         h.invuln = Math.max(h.invuln, 6);
         this.particles.emit(h.cx, h.y + h.h, 5, { angle: -Math.PI / 2, spread: 2.2, speed: 1.3, color: ['#fff'], life: 12 });
@@ -237,10 +247,10 @@ export class Level {
     if (!overlap({ x: h.x + 1, y: h.y + 1, w: h.w - 2, h: h.h - 1 }, b)) return;
     const stomping = h.vy > 0.3 && (h.y + h.h) - b.y <= 12 && !h.rushing && h.dashT <= 0;
     if (stomping) {
-      b.hit(h.pounding ? 3 : 1, this, 'stomp');
+      b.hit(h.pounding ? 3 : 1, this, 'stomp'); this.hitStop(4);
       h.vy = this.input.down('jump') ? -5.4 : -4; h.noCut = true; h.grounded = false; h.airJumps = 1; h.invuln = Math.max(h.invuln, 8); h.pounding = false;
     } else if (h.rushing || h.dashT > 0) {
-      b.hit(2, this, 'rush'); h.rushing = false; h.dashT = 0; h.rushCd = 30; h.vx = -h.facing * 2.2; h.vy = -2.4;
+      b.hit(2, this, 'rush'); this.hitStop(5); h.rushing = false; h.dashT = 0; h.rushCd = 30; h.vx = -h.facing * 2.2; h.vy = -2.4;
     } else h.hurt(1, b.cx, this);
   }
 

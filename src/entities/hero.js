@@ -18,7 +18,7 @@ export class Hero {
     this.w = 10; this.h = 14;
     this.x = x; this.y = y; this.vx = 0; this.vy = 0;
     this.facing = 1; this.grounded = false; this.onSlope = false; this.onOneWay = false; this.wall = 0; this.dropT = 0;
-    this.coyote = 0; this.jumpBuf = 0;
+    this.coyote = 0; this.jumpBuf = 0; this.assist = true; this.squashT = 0; this.stretchT = 0; this.squashK = 0;
     this.maxHp = maxHp; this.hp = maxHp; this.invuln = 0; this.hurtT = 0; this.dead = false; this.deathT = 0;
     this.star = 0;                       // timed invulnerability power-up (Stage 2)
     this.meter = 100; this.rushing = false; this.rushCd = 0;
@@ -69,7 +69,7 @@ export class Hero {
 
   hurt(dmg, fromX, lv) {
     if (this.dead || this.invuln > 0 || this.star > 0 || lv.cheatInvincible) return false;
-    lv.damageTaken++;
+    lv.damageTaken++; lv.hitStop(4);
     if (this.shield > 0) {            // the timed shield blocks every hit while it lasts
       this.invuln = 20; lv.audio.sfx('shieldhit');
       lv.particles.emit(this.cx, this.cy, 5, { speed: 1.8, color: ['#cffaff', '#7af0ff', '#fff'], life: 20 });
@@ -148,6 +148,7 @@ export class Hero {
 
     // ---- weapons: switch with prev/next, shoot with the shoot button
     if (this.shootCd > 0) this.shootCd--;
+    if (this.squashT > 0) this.squashT--; if (this.stretchT > 0) this.stretchT--;
     if (this.shield > 0) this.shield--;
     if (lv.run) { lv.run.ammo = this.ammo; lv.run.charges = this.charges; lv.run.reg = this.reg; }
     if (this.energy < 100) this.energy = Math.min(100, this.energy + 0.07);
@@ -170,7 +171,7 @@ export class Hero {
     } else if (this.jumpBuf > 0 && this.coyote > 0) {
       this.vy = -(JUMP_V * (ph.jump ?? 1) + Math.abs(this.vx) * 0.12);
       this.jumpBuf = 0; this.coyote = 0; this.grounded = false; this.riding = null;
-      lv.particles.dust(this.cx, this.y + this.h);
+      lv.particles.dust(this.cx, this.y + this.h); this.stretchT = 6;
       lv.audio.sfx('jump');
     } else if (ctl && inp.pressed('jump') && !this.grounded && this.coyote <= 0 && this.airJumps > 0 && this.can('doublejump')) {
       this.airJumps--; this.vy = -4.1; this.jumpBuf = 0; this.noCut = false;       // boss power: DOUBLE JUMP
@@ -179,7 +180,7 @@ export class Hero {
     }
     if (this.vy >= 0) this.noCut = false;
     const gm = ph.grav ?? 1;
-    const g = ((this.vy < 0 && !jumpHeld && !this.noCut) ? GRAV_CUT : GRAV) * gm;
+    const g = ((this.vy < 0 && !jumpHeld && !this.noCut) ? GRAV_CUT : GRAV * (this.vy > 0 ? (lv.fallMul || 1) : 1)) * gm;
     if (this.dashT > 0) this.vy = 0;
     else this.vy = Math.min(this.vy + g, MAX_FALL * (gm < 1 ? 0.7 : 1));
 
@@ -220,7 +221,7 @@ export class Hero {
     moveY(this, map);
     this.landOnPlatforms(lv, prevBottom);
     if (this.pounding && (this.grounded || this.hurtT > 0)) { if (this.grounded) this.slam(lv); this.pounding = false; }
-    if (this.grounded && !wasGrounded && preVy > 1.5) { lv.particles.dust(this.cx, this.y + this.h); lv.audio.sfx('land'); }
+    if (this.grounded && !wasGrounded && preVy > 1.5) { lv.particles.dust(this.cx, this.y + this.h); lv.audio.sfx('land'); this.squashT = 7; this.squashK = Math.min(1, preVy / 4.5); }
     if (this.ceil) lv.onHeadBump(this.ceil.c, this.ceil.r);
 
     // ---- animation + rush afterimages
@@ -296,8 +297,18 @@ export class Hero {
     }
     ctx.globalAlpha = 1;
     if (this.invuln > 0 && !this.dead && this.invuln % 6 < 3 && this.star <= 0) return;   // blink when hurt
-    const flash = (this.hurtT > 8) || (this.star > 0 && lv.frames % 4 < 2);
-    { const sp = this.sprite(); drawSprite(ctx, (lv.status === 'clear' && MATEO.victory && this.grounded) ? MATEO.victory : sp, this.cx - sp.w / 2, this.y + this.h - sp.h, this.facing, flash); }
+    const flash = (this.hurtT > 8) || (this.star > 0 && lv.frames % (lv.reduceFx ? 16 : 4) < (lv.reduceFx ? 8 : 2));
+    {
+      const sp = (lv.status === 'clear' && MATEO.victory && this.grounded) ? MATEO.victory : this.sprite();
+      let sx = 1, sy = 1;                                         // squash on landing, stretch on take-off (volume-ish preserving, brief)
+      if (this.squashT > 0) { const t = this.squashT / 7 * (0.35 + 0.65 * this.squashK); sx = 1 + 0.28 * t; sy = 1 - 0.24 * t; }
+      else if (this.stretchT > 0) { const t = this.stretchT / 6; sx = 1 - 0.14 * t; sy = 1 + 0.18 * t; }
+      if (sx === 1 && sy === 1) drawSprite(ctx, sp, this.cx - sp.w / 2, this.y + this.h - sp.h, this.facing, flash);
+      else {
+        const dw = Math.round(sp.w * sx), dh = Math.round(sp.h * sy), img = flash ? (this.facing < 0 ? sp.lw : sp.rw) : (this.facing < 0 ? sp.l : sp.r);
+        ctx.drawImage(img, Math.round(this.cx - dw / 2), Math.round(this.y + this.h - dh), dw, dh);
+      }
+    }
     if (this.shield > 0 && !this.dead) {       // timed bubble
       if (this.shield > 180 || lv.frames % 8 < 5) {              // flickers during the last 3 seconds
         ctx.globalAlpha = 0.85;
